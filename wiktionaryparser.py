@@ -1,6 +1,8 @@
 import copy
 import json
 import re
+import urllib
+
 import bs4
 import requests
 import logging
@@ -65,7 +67,7 @@ class WiktionaryDefinition:
 
 
 class WiktionaryEntry:
-    pos_list = ['Verb', 'Noun', 'Adjective', 'Pronoun', 'Conjunction', 'Proper_noun', 'Numeral', 'Preposition', 'Adverb', 'Participle', 'Letter', 'Prefix', 'Punctuation_mark']
+    pos_list = ['Verb', 'Noun', 'Adjective', 'Pronoun', 'Conjunction', 'Proper_noun', 'Numeral', 'Preposition', 'Adverb', 'Participle', 'Letter', 'Prefix', 'Punctuation_mark', 'Interjection']
 
     def __init__(self, word, soup, part_of_speech=None):
         self._logger = logging.getLogger('Wiki-%s' % word)
@@ -159,10 +161,20 @@ class WiktionaryParser:
     def __init__(self):
         self._logger = logging.getLogger('WiktionaryParser')
 
+    def fetch_from_url(self, url):
+        self._logger.debug('fetching from url')
+        entries = []
+        entered_word = urllib.parse.unquote(url.split('/')[-1])
+        raw_soup = make_soup_from_url(url)
+        return self._parse_soup(entered_word, entries, raw_soup)
+
     def fetch(self, entered_word):
         self._logger.info('Fetching page for word %s', entered_word)
         entries = []
         raw_soup = make_soup(entered_word)
+        return self._parse_soup(entered_word, entries, raw_soup)
+
+    def _parse_soup(self, entered_word, entries, raw_soup):
         if raw_soup is not None:
             toc = get_table_of_contents(raw_soup)
             soup = filter_language(raw_soup)
@@ -170,7 +182,8 @@ class WiktionaryParser:
                 if toc:
                     entry_list = parse_toc(toc)
                     if not len(entry_list):
-                        logging.warning('Russian entry found for word %s but could not determine part of speech', entered_word)
+                        logging.warning('Russian entry found for word %s but could not determine part of speech',
+                                        entered_word)
                     for entry in entry_list:
                         entries.append(WiktionaryEntry(entered_word, soup, entry))
                 else:
@@ -194,6 +207,14 @@ class WiktionaryParser:
 def make_soup(word: str) -> bs4.BeautifulSoup:
     """Fetch wiki entry for given word and make some beautiful soup out if it."""
     resp = requests.get(f'https://en.wiktionary.org/wiki/{word}')
+    if resp.status_code == 200:
+        return bs4.BeautifulSoup(resp.content, features="lxml")
+    return None
+
+
+def make_soup_from_url(url) -> bs4.BeautifulSoup:
+    """Fetch wiki entry for given word and make some beautiful soup out if it."""
+    resp = requests.get(url)
     if resp.status_code == 200:
         return bs4.BeautifulSoup(resp.content, features="lxml")
     return None

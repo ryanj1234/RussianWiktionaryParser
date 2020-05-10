@@ -215,3 +215,33 @@ def test_russian():
     assert entries[0].definitions[0].examples[2].text == "из Росси́и"
 
     assert entries[0].inflections is not None
+
+
+def test_build_from_url():
+    # entries = run_fetch('https://en.wiktionary.org/wiki/%D0%BA%D0%BE%D1%82')
+    wiki = WiktionaryParser()
+    entries = wiki.fetch_from_url('https://en.wiktionary.org/wiki/%D0%BA%D0%BE%D1%82')
+    assert len(entries) == 1, "Unexpected number of entries found"
+    assert entries[0].part_of_speech == "Noun", "Incorrect part of speech found"
+    assert len(entries[0].definitions) == 1, "Unexpected number of definitions found"
+    assert entries[0].definitions[0].text == "tomcat"
+    assert len(entries[0].definitions[0].examples) == 4, "Unexpected number of examples found"
+    assert entries[0].definitions[0].examples[0].text == 'кот в сапога́х'
+    assert entries[0].definitions[0].examples[1].text == 'кот наплакал'
+    assert entries[0].definitions[0].examples[2].text == 'Не всё коту́ ма́сленица, придёт и вели́кий пост.'
+    assert entries[0].definitions[0].examples[3].text == 'купи́ть кота́ в мешке́'
+
+    inflections = entries[0].inflections.to_json()
+    assert inflections['nom|s'] == ['ко́т']
+    assert inflections['nom|p'] == ['коты́']
+
+    assert inflections['gen|s'] == ['кота́']
+    assert inflections['gen|p'] == ['кото́в']
+    assert inflections['dat|s'] == ['коту́']
+    assert inflections['dat|p'] == ['кота́м']
+    assert inflections['acc|s'] == ['кота́']
+    assert inflections['acc|p'] == ['кото́в']
+    assert inflections['ins|s'] == ['кото́м']
+    assert inflections['ins|p'] == ['кота́ми']
+    assert inflections['pre|s'] == ['коте́']
+    assert inflections['pre|p'] == ['кота́х']
