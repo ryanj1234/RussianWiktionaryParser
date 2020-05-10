@@ -65,7 +65,7 @@ class WiktionaryDefinition:
 
 
 class WiktionaryEntry:
-    pos_list = ['Verb', 'Noun', 'Adjective', 'Pronoun', 'Conjunction', 'Proper_noun', 'Numeral', 'Preposition', 'Adverb', 'Participle']
+    pos_list = ['Verb', 'Noun', 'Adjective', 'Pronoun', 'Conjunction', 'Proper_noun', 'Numeral', 'Preposition', 'Adverb', 'Participle', 'Letter', 'Prefix', 'Punctuation_mark']
 
     def __init__(self, word, soup, part_of_speech=None):
         self._logger = logging.getLogger('Wiki-%s' % word)
