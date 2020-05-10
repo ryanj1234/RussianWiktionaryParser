@@ -29,6 +29,13 @@ class WiktionaryInflectionTable:
     def to_json(self):
         return self._json
 
+    def to_lower_set(self):
+        inflection_set = set()
+        for key in self._json.keys():
+            for item in self._json[key]:
+                inflection_set.add(item.lower().replace('́', ''))
+        return inflection_set
+
 
 class WiktionaryExample:
     def __init__(self, examples_tag):
