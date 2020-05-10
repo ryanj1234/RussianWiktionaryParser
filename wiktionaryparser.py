@@ -76,6 +76,7 @@ class WiktionaryEntry:
         self.part_of_speech = ''
         self.definitions = []
         self.inflections = None
+        self.base_links = []
 
         if part_of_speech is None:
             self._parse_part_of_speech()
@@ -84,6 +85,16 @@ class WiktionaryEntry:
         self._parse_definitions()
 
         self._parse_inflection_table()
+
+        for definition in self.definitions:
+            if definition.base_link is not None:
+                self.base_links.append(
+                    {
+                        'link': definition.base_link,
+                        'word': definition.base_word,
+                        'text': definition.text
+                    }
+                )
 
     def _parse_part_of_speech(self):
         pos_headings = self._soup.find_all('span', {'class': 'mw-headline'})
@@ -152,14 +163,15 @@ class WiktionaryParser:
         if raw_soup is not None:
             toc = get_table_of_contents(raw_soup)
             soup = filter_language(raw_soup)
-            if toc:
-                entry_list = parse_toc(toc)
-                for entry in entry_list:
-                    entries.append(WiktionaryEntry(entered_word, soup, entry))
-            else:
-                entries = [WiktionaryEntry(entered_word, soup)]
+            if soup is not None:
+                if toc:
+                    entry_list = parse_toc(toc)
+                    for entry in entry_list:
+                        entries.append(WiktionaryEntry(entered_word, soup, entry))
+                else:
+                    entries = [WiktionaryEntry(entered_word, soup)]
         else:
-            self._logger.warning('No page found for word %s' % entered_word)
+            self._logger.debug('No page found for word %s' % entered_word)
         return entries
 
     def search(self, word, limit=10):
@@ -194,7 +206,7 @@ def filter_language(soup_data: bs4.BeautifulSoup) -> bs4.BeautifulSoup:
                 new_page.body.div.append(copy.copy(next_sibling))
                 next_sibling = next_sibling.next_sibling
         else:
-            logging.error('No russian entries found on page!')
+            logging.debug('No russian entries found on page!')
             return None
 
         return new_page
