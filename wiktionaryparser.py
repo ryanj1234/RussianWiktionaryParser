@@ -137,7 +137,7 @@ class WiktionaryEntry:
             self._logger.debug('Could not find provided part of speech header: %s', part_of_speech)
         else:
             self._pos_heading = pos_heading
-            self.part_of_speech = part_of_speech.split('_')[0]
+            self.part_of_speech = remove_trailing_numbers(part_of_speech).replace('_', ' ')
 
     def _parse_inflection_table(self):
         inflection_table = self._soup.find('table', {'class': re.compile('inflection-table')})
@@ -162,7 +162,7 @@ class WiktionaryParser:
     def fetch(self, entered_word):
         self._logger.info('Fetching page for word %s', entered_word)
         entries = []
-        raw_soup = make_soup(entered_word.lower())
+        raw_soup = make_soup(entered_word)
         if raw_soup is not None:
             toc = get_table_of_contents(raw_soup)
             soup = filter_language(raw_soup)

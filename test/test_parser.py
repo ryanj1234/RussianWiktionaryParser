@@ -1,8 +1,8 @@
 import os
+from unittest.mock import patch
 from wiktionaryparser import WiktionaryParser
 from bs4 import BeautifulSoup
 import logging
-from unittest.mock import patch
 
 dir_path = os.path.dirname(os.path.realpath(__file__))
 data_dir = 'data'
@@ -16,11 +16,11 @@ def build_soup_from_file(word):
 
 
 def run_fetch(word):
-    mock = True
+    # mock = True
     wiki = WiktionaryParser()
-    if mock:
-        with patch('wiktionaryparser.make_soup') as mock_fetch:
-            mock_fetch.side_effect = build_soup_from_file
+    # if mock:
+    with patch('wiktionaryparser.make_soup') as mock_fetch:
+        mock_fetch.side_effect = build_soup_from_file
     return wiki.fetch(word)
 
 
@@ -210,8 +210,8 @@ def test_russian():
     assert len(entries[0].definitions) == 1, "Unexpected number of definitions found"
     assert entries[0].definitions[0].text == "Russia (a country in Eastern Europe and Asia)"
     assert len(entries[0].definitions[0].examples) == 3, "Unexpected number of examples found"
-    assert entries[0].definitions[0].examples[1].text == "в Росси́и"
+    assert entries[0].definitions[0].examples[0].text == "в Росси́и"
     assert entries[0].definitions[0].examples[1].text == "в Росси́ю"
-    assert entries[0].definitions[0].examples[1].text == "из Росси́и"
+    assert entries[0].definitions[0].examples[2].text == "из Росси́и"
 
     assert entries[0].inflections is not None
