@@ -65,7 +65,7 @@ class WiktionaryDefinition:
 
 
 class WiktionaryEntry:
-    pos_list = ['Verb', 'Noun', 'Adjective', 'Pronoun', 'Conjunction', 'Proper_noun', 'Numeral', 'Preposition', 'Adverb']
+    pos_list = ['Verb', 'Noun', 'Adjective', 'Pronoun', 'Conjunction', 'Proper_noun', 'Numeral', 'Preposition', 'Adverb', 'Participle']
 
     def __init__(self, word, soup, part_of_speech=None):
         self._logger = logging.getLogger('Wiki-%s' % word)
@@ -104,12 +104,7 @@ class WiktionaryEntry:
         for heading in pos_headings:
             heading_id = heading.get('id')
             if heading_id is not None:
-                header_parts = heading_id.split('_')
-                if header_parts[-1].isnumeric():
-                    # remove trailing number from heading if there is one
-                    stripped_heading_id = heading_id.replace(f'_{header_parts[-1]}', '')
-                else:
-                    stripped_heading_id = heading_id
+                stripped_heading_id = remove_trailing_numbers(heading_id)
                 if stripped_heading_id in WiktionaryEntry.pos_list:
                     self.part_of_speech = stripped_heading_id
                     self._pos_heading = heading
@@ -167,7 +162,7 @@ class WiktionaryParser:
     def fetch(self, entered_word):
         self._logger.info('Fetching page for word %s', entered_word)
         entries = []
-        raw_soup = make_soup(entered_word)
+        raw_soup = make_soup(entered_word.lower())
         if raw_soup is not None:
             toc = get_table_of_contents(raw_soup)
             soup = filter_language(raw_soup)
@@ -242,8 +237,17 @@ def parse_toc(toc):
         href = anchor['href']
         if '#' in href:
             href = href.split('#')[1]
-            stripped_pos = href.split('_')[0]
-            if stripped_pos in WiktionaryEntry.pos_list:
+            # stripped_pos = href.split('_')[0]
+            if remove_trailing_numbers(href) in WiktionaryEntry.pos_list:
                 entry_list.append(href)
     return entry_list
 
+
+def remove_trailing_numbers(heading_id):
+    header_parts = heading_id.split('_')
+    if header_parts[-1].isnumeric():
+        # remove trailing number from heading if there is one
+        stripped_heading_id = heading_id.replace(f'_{header_parts[-1]}', '')
+    else:
+        stripped_heading_id = heading_id
+    return stripped_heading_id

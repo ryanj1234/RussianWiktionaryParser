@@ -1,0 +1,1 @@
+@media screen and (min-width:0\0) and (min-resolution:+72dpi){.derivedterms ul{-webkit-column-break-inside:avoid;break-inside:avoid}}@-moz-document url-prefix(){.derivedterms ul{break-inside:avoid}}

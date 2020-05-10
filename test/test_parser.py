@@ -200,3 +200,18 @@ def test_saw():
     assert len(entries[1].definitions) == 1, "Unexpected number of definitions found"
     assert entries[1].definitions[0].text == "feminine singular past indicative imperfective of пить (pitʹ)"
     assert len(entries[1].definitions[0].examples) == 0, "Unexpected number of examples found"
+
+
+def test_russian():
+    entries = run_fetch('Россия')
+    assert len(entries) == 1, "Unexpected number of entries found"
+
+    assert entries[0].part_of_speech == "Proper noun", "Incorrect part of speech found"
+    assert len(entries[0].definitions) == 1, "Unexpected number of definitions found"
+    assert entries[0].definitions[0].text == "Russia (a country in Eastern Europe and Asia)"
+    assert len(entries[0].definitions[0].examples) == 3, "Unexpected number of examples found"
+    assert entries[0].definitions[0].examples[1].text == "в Росси́и"
+    assert entries[0].definitions[0].examples[1].text == "в Росси́ю"
+    assert entries[0].definitions[0].examples[1].text == "из Росси́и"
+
+    assert entries[0].inflections is not None
