@@ -1,7 +1,6 @@
 import copy
 import json
 import re
-
 import bs4
 import requests
 import logging
@@ -15,7 +14,6 @@ class WiktionaryInflectionTable:
 
         table_entries = table_body.find_all('span', {'class': re.compile('Cyrl form-of lang-ru')})
         for entry in table_entries:
-            entry_key = ''
             classes = entry['class']
             for cls in classes:
                 if cls.endswith('-form-of'):
@@ -67,7 +65,7 @@ class WiktionaryDefinition:
 
 
 class WiktionaryEntry:
-    pos_list = ['Verb', 'Noun', 'Adjective']
+    pos_list = ['Verb', 'Noun', 'Adjective', 'Pronoun']
 
     def __init__(self, word, soup, part_of_speech=None):
         self._logger = logging.getLogger('Wiki-%s' % word)
@@ -233,13 +231,5 @@ def parse_toc(toc):
             stripped_pos = href.split('_')[0]
             if stripped_pos in WiktionaryEntry.pos_list:
                 entry_list.append(href)
-    # for item in list(item_list.children):
-    #     if item.name == 'li':
-    #         href = item.a['href']
-    #         if '#' in href:
-    #             href = href.split('#')[1]
-    #         stripped_pos = href.split('_')[0]
-    #         if stripped_pos in WiktionaryEntry.pos_list:
-    #             entry_list.append(href)
     return entry_list
 
