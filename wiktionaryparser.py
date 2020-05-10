@@ -74,7 +74,7 @@ class WiktionaryDefinition:
 
 
 class WiktionaryEntry:
-    pos_list = ['Verb', 'Noun', 'Adjective', 'Pronoun', 'Conjunction', 'Proper_noun', 'Numeral', 'Preposition', 'Adverb', 'Participle', 'Letter', 'Prefix', 'Punctuation_mark', 'Interjection', 'Determiner', '']
+    pos_list = ['Verb', 'Noun', 'Adjective', 'Pronoun', 'Conjunction', 'Proper_noun', 'Numeral', 'Preposition', 'Adverb', 'Participle', 'Letter', 'Prefix', 'Punctuation_mark', 'Interjection', 'Determiner', 'Predicative']
 
     def __init__(self, word, soup, part_of_speech=None):
         self._logger = logging.getLogger('Wiki-%s' % word)
@@ -172,6 +172,8 @@ class WiktionaryParser:
         self._logger.debug('fetching from url')
         entries = []
         entered_word = urllib.parse.unquote(url.split('/')[-1])
+        if '#' in entered_word:
+            entered_word = ''.join(entered_word.split('#')[:-1])
         raw_soup = make_soup_from_url(url)
         return self._parse_soup(entered_word, entries, raw_soup)
 
