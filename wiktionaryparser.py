@@ -65,7 +65,7 @@ class WiktionaryDefinition:
 
 
 class WiktionaryEntry:
-    pos_list = ['Verb', 'Noun', 'Adjective', 'Pronoun']
+    pos_list = ['Verb', 'Noun', 'Adjective', 'Pronoun', 'Conjunction', 'Proper_noun', 'Numeral', 'Preposition', 'Adverb']
 
     def __init__(self, word, soup, part_of_speech=None):
         self._logger = logging.getLogger('Wiki-%s' % word)
@@ -76,14 +76,12 @@ class WiktionaryEntry:
         self.inflections = None
         self.base_links = []
 
-        if part_of_speech is None:
-            self._parse_part_of_speech()
-        else:
-            self._find_speech_header(part_of_speech)
+        self._parse_part_of_speech(part_of_speech)
         self._parse_definitions()
-
         self._parse_inflection_table()
+        self._parse_base_links()
 
+    def _parse_base_links(self):
         for definition in self.definitions:
             if definition.base_link is not None:
                 self.base_links.append(
@@ -94,19 +92,31 @@ class WiktionaryEntry:
                     }
                 )
 
-    def _parse_part_of_speech(self):
+    def _parse_part_of_speech(self, part_of_speech):
+        self._pos_heading = None
+        if part_of_speech is None:
+            self._find_part_of_speech()
+        else:
+            self._find_speech_header(part_of_speech)
+
+    def _find_part_of_speech(self):
         pos_headings = self._soup.find_all('span', {'class': 'mw-headline'})
         for heading in pos_headings:
             heading_id = heading.get('id')
             if heading_id is not None:
-                stripped_heading_id = heading_id.split('_')[0]
+                header_parts = heading_id.split('_')
+                if header_parts[-1].isnumeric():
+                    # remove trailing number from heading if there is one
+                    stripped_heading_id = heading_id.replace(f'_{header_parts[-1]}', '')
+                else:
+                    stripped_heading_id = heading_id
                 if stripped_heading_id in WiktionaryEntry.pos_list:
                     self.part_of_speech = stripped_heading_id
                     self._pos_heading = heading
                     self._logger.debug('Part of speech found: %s', self.part_of_speech)
                     break
         else:
-            self._logger.debug('No part of speech found')
+            self._logger.error('Could not determine part of speech')
 
     def _parse_definitions(self):
         if self._pos_heading is not None:
@@ -147,7 +157,7 @@ class WiktionaryEntry:
             self_str += f"\t{i+1}. {definition.text}\n"
             for example in definition.examples:
                 self_str += f"\t\t{example.text}\n"
-        return self_str
+        return self_str.replace('́', '')  # remove accents
 
 
 class WiktionaryParser:
@@ -164,6 +174,8 @@ class WiktionaryParser:
             if soup is not None:
                 if toc:
                     entry_list = parse_toc(toc)
+                    if not len(entry_list):
+                        logging.warning('Russian entry found for word %s but could not determine part of speech', entered_word)
                     for entry in entry_list:
                         entries.append(WiktionaryEntry(entered_word, soup, entry))
                 else:
@@ -180,6 +192,8 @@ class WiktionaryParser:
         else:
             self._logger.info('Error received from server: %u', resp.status_code)
         return results
+
+    # TODO: search, lookup first result and check for word in declension table
 
 
 def make_soup(word: str) -> bs4.BeautifulSoup:
