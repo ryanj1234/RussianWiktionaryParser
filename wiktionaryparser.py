@@ -215,7 +215,8 @@ class WiktionaryParser:
 
 def make_soup(word: str) -> bs4.BeautifulSoup:
     """Fetch wiki entry for given word and make some beautiful soup out if it."""
-    resp = requests.get(f'https://en.wiktionary.org/wiki/{word}')
+    # resp = requests.get(f'https://en.wiktionary.org/wiki/{word}')
+    resp = requests.get(f'https://en.wiktionary.org/w/index.php?search={word}+&title=Special%3ASearch&go=Go&wprov=acrw1_-1')
     if resp.status_code == 200:
         return bs4.BeautifulSoup(resp.content, features="lxml")
     return None
