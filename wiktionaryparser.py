@@ -76,7 +76,7 @@ class WiktionaryDefinition:
 class WiktionaryEntry:
     pos_list = ['Verb', 'Noun', 'Adjective', 'Pronoun', 'Conjunction', 'Proper_noun', 'Numeral', 'Preposition', 'Adverb', 'Participle', 'Letter', 'Prefix', 'Punctuation_mark', 'Interjection', 'Determiner', 'Predicative']
 
-    def __init__(self, word, soup, part_of_speech=None):
+    def __init__(self, word, soup, part_of_speech=None, tracing=None):
         self._logger = logging.getLogger('Wiki-%s' % word)
         self.word = word
         self._soup = soup
@@ -84,15 +84,38 @@ class WiktionaryEntry:
         self.definitions = []
         self.inflections = None
         self.base_links = []
+        self.base_links_set = set()
+        self.tracing = tracing if tracing is not None else []
 
         self._parse_part_of_speech(part_of_speech)
         self._parse_definitions()
         self._parse_inflection_table()
         self._parse_base_links()
 
+    def follow_to_base(self):
+        entries = []
+        if self._purely_base:
+            if len(self.base_links_set) == 1:
+                wiki = WiktionaryParser()
+                entries = wiki.fetch_from_url('https://en.wiktionary.org' + self.base_links_set.pop())
+                for entry in entries:
+                    entry.tracing.extend(self.tracing)
+                    entry.tracing.append(f"Followed to base {self.base_links[0]['word']}")
+        return entries
+
+    @property
+    def _purely_base(self):
+        if len(self.definitions) == 0:
+            return False
+        for definition in self.definitions:
+            if definition.base_link is None:
+                return False
+        return True
+
     def _parse_base_links(self):
         for definition in self.definitions:
             if definition.base_link is not None:
+                self.base_links_set.add(definition.base_link)
                 self.base_links.append(
                     {
                         'link': definition.base_link,
