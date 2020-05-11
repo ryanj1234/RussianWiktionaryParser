@@ -1,6 +1,6 @@
 import os
 from unittest.mock import patch
-from wiktionaryparser import WiktionaryParser
+import wiktionaryparser
 from bs4 import BeautifulSoup
 import logging
 
@@ -16,12 +16,11 @@ def build_soup_from_file(word):
 
 
 def run_fetch(word):
-    # mock = True
-    wiki = WiktionaryParser()
-    # if mock:
-    with patch('wiktionaryparser.make_soup') as mock_fetch:
+    wiki = wiktionaryparser.WiktionaryParser()
+    with patch('wiktionaryparser.WiktionaryParser.make_soup') as mock_fetch:
         mock_fetch.side_effect = build_soup_from_file
-    return wiki.fetch(word)
+        entries = wiki.fetch(word)
+    return entries
 
 
 def test_to_say():
@@ -219,7 +218,7 @@ def test_russian():
 
 def test_build_from_url():
     # entries = run_fetch('https://en.wiktionary.org/wiki/%D0%BA%D0%BE%D1%82')
-    wiki = WiktionaryParser()
+    wiki = wiktionaryparser.WiktionaryParser()
     entries = wiki.fetch_from_url('https://en.wiktionary.org/wiki/%D0%BA%D0%BE%D1%82')
     assert len(entries) == 1, "Unexpected number of entries found"
     assert entries[0].part_of_speech == "Noun", "Incorrect part of speech found"

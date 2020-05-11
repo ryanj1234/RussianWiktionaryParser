@@ -164,42 +164,99 @@ class WiktionaryEntry:
         return self_str.replace('́', '')  # remove accents
 
 
+class WiktionaryPageParser:
+    def __init__(self, entered_word, soup: bs4.BeautifulSoup):
+        self._logger = logging.getLogger('WikiPageParser')
+        self.entered_word = entered_word
+        self.raw_soup = soup
+        self._get_title()
+        self.filtered_soup = self.filter_language()
+        toc_entries = self._parse_toc()
+
+        self.entries = []
+        if self.filtered_soup is not None:
+            if toc_entries:
+                for entry in toc_entries:
+                    self.entries.append(WiktionaryEntry(entered_word, self.filtered_soup, entry))
+            else:
+                self.entries = [WiktionaryEntry(entered_word, self.filtered_soup)]
+        else:
+            self._logger.debug('No russian entries found for word %s' % entered_word)
+
+    def get_entries(self):
+        return self.entries
+
+    def filter_language(self):
+        if self.raw_soup is not None:
+            new_page = bs4.BeautifulSoup("<html><body><div class=\"mw-parser-output\"></div></body></html>",
+                                         features="lxml")
+            russian_headline = self.raw_soup.find('span', {'class': 'mw-headline', 'id': 'Russian'})
+            if russian_headline is not None and russian_headline.parent.name == 'h2':
+                parent = russian_headline.parent
+                next_sibling = parent.next_sibling
+                while next_sibling is not None:
+                    if isinstance(next_sibling, bs4.element.Tag):
+                        if next_sibling.name == 'h2':
+                            break
+                    new_page.body.div.append(copy.copy(next_sibling))
+                    next_sibling = next_sibling.next_sibling
+            else:
+                logging.debug('No russian entries found on page!')
+                return None
+
+            return new_page
+        return None
+
+    def _get_table_of_contents(self):
+        contents = self.raw_soup.find_all('span', {'class': 'toctext'})
+        for content in contents:
+            if content.get_text() == 'Russian':
+                return content
+        return None
+
+    def _parse_toc(self):
+        self.toc = self._get_table_of_contents()
+        entry_list = []
+        if self.toc is not None:
+            toc_section = self.toc.parent.parent
+            item_list = toc_section.ul
+            possible_items = item_list.find_all('a')
+            for anchor in possible_items:
+                href = anchor['href']
+                if '#' in href:
+                    href = href.split('#')[1]
+                    # stripped_pos = href.split('_')[0]
+                    if remove_trailing_numbers(href) in WiktionaryEntry.pos_list:
+                        entry_list.append(href)
+        return entry_list
+
+    def _get_title(self):
+        # TODO
+        pass
+
+
 class WiktionaryParser:
     def __init__(self):
         self._logger = logging.getLogger('WiktionaryParser')
 
     def fetch_from_url(self, url):
         self._logger.debug('fetching from url')
-        entries = []
         entered_word = urllib.parse.unquote(url.split('/')[-1])
         if '#' in entered_word:
             entered_word = ''.join(entered_word.split('#')[:-1])
         raw_soup = make_soup_from_url(url)
-        return self._parse_soup(entered_word, entries, raw_soup)
+        if raw_soup is not None:
+            wiki_page = WiktionaryPageParser(entered_word, raw_soup)
+            return wiki_page.get_entries()
+        return []
 
     def fetch(self, entered_word):
         self._logger.info('Fetching page for word %s', entered_word)
-        entries = []
-        raw_soup = make_soup(entered_word)
-        return self._parse_soup(entered_word, entries, raw_soup)
-
-    def _parse_soup(self, entered_word, entries, raw_soup):
+        raw_soup = self.make_soup(entered_word)
         if raw_soup is not None:
-            toc = get_table_of_contents(raw_soup)
-            soup = filter_language(raw_soup)
-            if soup is not None:
-                if toc:
-                    entry_list = parse_toc(toc)
-                    if not len(entry_list):
-                        logging.warning('Russian entry found for word %s but could not determine part of speech',
-                                        entered_word)
-                    for entry in entry_list:
-                        entries.append(WiktionaryEntry(entered_word, soup, entry))
-                else:
-                    entries = [WiktionaryEntry(entered_word, soup)]
-        else:
-            self._logger.debug('No page found for word %s' % entered_word)
-        return entries
+            wiki_page = WiktionaryPageParser(entered_word, raw_soup)
+            return wiki_page.get_entries()
+        return []
 
     def search(self, word, limit=10):
         results = []
@@ -210,16 +267,15 @@ class WiktionaryParser:
             self._logger.info('Error received from server: %u', resp.status_code)
         return results
 
+    def make_soup(self, word: str) -> bs4.BeautifulSoup:
+        """Fetch wiki entry for given word and make some beautiful soup out if it."""
+        # resp = requests.get(f'https://en.wiktionary.org/wiki/{word}')
+        resp = requests.get(f'https://en.wiktionary.org/w/index.php?search={word}+&title=Special%3ASearch&go=Go&wprov=acrw1_-1')
+        if resp.status_code == 200:
+            return bs4.BeautifulSoup(resp.content, features="lxml")
+        return None
+
     # TODO: search, lookup first result and check for word in declension table
-
-
-def make_soup(word: str) -> bs4.BeautifulSoup:
-    """Fetch wiki entry for given word and make some beautiful soup out if it."""
-    # resp = requests.get(f'https://en.wiktionary.org/wiki/{word}')
-    resp = requests.get(f'https://en.wiktionary.org/w/index.php?search={word}+&title=Special%3ASearch&go=Go&wprov=acrw1_-1')
-    if resp.status_code == 200:
-        return bs4.BeautifulSoup(resp.content, features="lxml")
-    return None
 
 
 def make_soup_from_url(url) -> bs4.BeautifulSoup:
@@ -228,50 +284,6 @@ def make_soup_from_url(url) -> bs4.BeautifulSoup:
     if resp.status_code == 200:
         return bs4.BeautifulSoup(resp.content, features="lxml")
     return None
-
-
-def filter_language(soup_data: bs4.BeautifulSoup) -> bs4.BeautifulSoup:
-    if soup_data is not None:
-        new_page = bs4.BeautifulSoup("<html><body><div class=\"mw-parser-output\"></div></body></html>", features="lxml")
-        russian_headline = soup_data.find('span', {'class': 'mw-headline', 'id': 'Russian'})
-        if russian_headline is not None and russian_headline.parent.name == 'h2':
-            parent = russian_headline.parent
-            next_sibling = parent.next_sibling
-            while next_sibling is not None:
-                if isinstance(next_sibling, bs4.element.Tag):
-                    if next_sibling.name == 'h2':
-                        break
-                new_page.body.div.append(copy.copy(next_sibling))
-                next_sibling = next_sibling.next_sibling
-        else:
-            logging.debug('No russian entries found on page!')
-            return None
-
-        return new_page
-    return None
-
-
-def get_table_of_contents(soup):
-    contents = soup.find_all('span', {'class': 'toctext'})
-    for content in contents:
-        if content.get_text() == 'Russian':
-            return content
-    return None
-
-
-def parse_toc(toc):
-    entry_list = []
-    toc_section = toc.parent.parent
-    item_list = toc_section.ul
-    possible_items = item_list.find_all('a')
-    for anchor in possible_items:
-        href = anchor['href']
-        if '#' in href:
-            href = href.split('#')[1]
-            # stripped_pos = href.split('_')[0]
-            if remove_trailing_numbers(href) in WiktionaryEntry.pos_list:
-                entry_list.append(href)
-    return entry_list
 
 
 def remove_trailing_numbers(heading_id):

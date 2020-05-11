@@ -4,7 +4,7 @@ import logging
 logging.basicConfig(level=logging.INFO)
 if __name__ == '__main__':
     wp = WiktionaryParser()
-    entries = wp.fetch('Для')
+    entries = wp.fetch('кошка')
     # wiki = WiktionaryParser()
     # entries = wiki.fetch_from_url('https://en.wiktionary.org/wiki/%D0%BA%D0%BE%D1%82')
     print(f"{len(entries)} entries found")
