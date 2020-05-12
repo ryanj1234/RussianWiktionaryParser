@@ -40,7 +40,11 @@ class WiktionaryInflectionTable:
 class WiktionaryExample:
     def __init__(self, examples_tag):
         self._logger = logging.getLogger('WikiEx')
-        self.text = examples_tag.get_text()
+        mention_tag = examples_tag.find('i', {'class': 'Cyrl mention e-example'})
+        if mention_tag is not None:
+            self.text = mention_tag.get_text()
+        else:
+            self.text = ''
 
 
 class WiktionaryDefinition:
@@ -60,21 +64,20 @@ class WiktionaryDefinition:
         citation_ul = list_item.find('div', {'class': 'citation-whole'})
         if citation_ul is not None:
             citation_ul.decompose()
-        examples = list_item.find('dl')
-        if examples:
-            examples_tag = examples.extract()
-            self._parse_examples(examples_tag)
+        h_usage_tags = list_item.find_all('div', {'class': 'h-usage-example'})
+        for usage_tag in h_usage_tags:
+            usage_tag.extract()
+            self._parse_usage_tag(usage_tag)
         self.text = list_item.get_text().strip()
-        self.parsed = True
 
-    def _parse_examples(self, examples_tag):
-        dd = examples_tag.find_all('i', {'Cyrl mention e-example'})
-        for def_tag in dd:
-            self.examples.append(WiktionaryExample(def_tag))
+    def _parse_usage_tag(self, usage_tag):
+        self.examples.append(WiktionaryExample(usage_tag))
 
 
 class WiktionaryEntry:
-    pos_list = ['Verb', 'Noun', 'Adjective', 'Pronoun', 'Conjunction', 'Proper_noun', 'Numeral', 'Preposition', 'Adverb', 'Participle', 'Letter', 'Prefix', 'Punctuation_mark', 'Interjection', 'Determiner', 'Predicative']
+    pos_list = ['Verb', 'Noun', 'Adjective', 'Pronoun', 'Conjunction', 'Proper_noun', 'Numeral', 'Preposition',
+                'Adverb', 'Participle', 'Letter', 'Prefix', 'Punctuation_mark', 'Interjection', 'Determiner',
+                'Predicative']
 
     def __init__(self, word, soup, part_of_speech=None, tracing=None):
         self._logger = logging.getLogger('Wiki-%s' % word)
@@ -159,9 +162,7 @@ class WiktionaryEntry:
 
     def _parse_definition(self, definition):
         if definition.name == 'li':
-            wiki_def = WiktionaryDefinition(definition)
-            if wiki_def.parsed:
-                self.definitions.append(wiki_def)
+            self.definitions.append(WiktionaryDefinition(definition))
 
     def _find_speech_header(self, part_of_speech):
         pos_heading = self._soup.find('span', {'class': 'mw-headline', 'id': part_of_speech})
@@ -181,7 +182,7 @@ class WiktionaryEntry:
     def __str__(self):
         self_str = f"{self.word}: {self.part_of_speech}\n"
         for i, definition in enumerate(self.definitions):
-            self_str += f"\t{i+1}. {definition.text}\n"
+            self_str += f"\t{i + 1}. {definition.text}\n"
             for example in definition.examples:
                 self_str += f"\t\t{example.text}\n"
         return self_str.replace('́', '')  # remove accents
@@ -258,15 +259,20 @@ class WiktionaryPageParser:
         pass
 
 
+def parse_word_from_url(url):
+    entered_word = urllib.parse.unquote(url.split('/')[-1])
+    if '#' in entered_word:
+        entered_word = ''.join(entered_word.split('#')[:-1])
+    return entered_word
+
+
 class WiktionaryParser:
     def __init__(self):
         self._logger = logging.getLogger('WiktionaryParser')
 
     def fetch_from_url(self, url):
         self._logger.debug('fetching from url')
-        entered_word = urllib.parse.unquote(url.split('/')[-1])
-        if '#' in entered_word:
-            entered_word = ''.join(entered_word.split('#')[:-1])
+        entered_word = parse_word_from_url(url)
         raw_soup = make_soup_from_url(url)
         if raw_soup is not None:
             wiki_page = WiktionaryPageParser(entered_word, raw_soup)
@@ -283,7 +289,8 @@ class WiktionaryParser:
 
     def search(self, word, limit=10):
         results = []
-        resp = requests.get(f"https://en.wiktionary.org/w/api.php?action=opensearch&format=json&formatversion=2&search={word}&namespace=0&limit={limit}")
+        resp = requests.get(
+            f"https://en.wiktionary.org/w/api.php?action=opensearch&format=json&formatversion=2&search={word}&namespace=0&limit={limit}")
         if resp.status_code == 200:
             results = json.loads(resp.content.decode())
         else:
@@ -293,12 +300,11 @@ class WiktionaryParser:
     def make_soup(self, word: str) -> bs4.BeautifulSoup:
         """Fetch wiki entry for given word and make some beautiful soup out if it."""
         # resp = requests.get(f'https://en.wiktionary.org/wiki/{word}')
-        resp = requests.get(f'https://en.wiktionary.org/w/index.php?search={word}+&title=Special%3ASearch&go=Go&wprov=acrw1_-1')
+        resp = requests.get(
+            f'https://en.wiktionary.org/w/index.php?search={word}+&title=Special%3ASearch&go=Go&wprov=acrw1_-1')
         if resp.status_code == 200:
             return bs4.BeautifulSoup(resp.content, features="lxml")
         return None
-
-    # TODO: search, lookup first result and check for word in declension table
 
 
 def make_soup_from_url(url) -> bs4.BeautifulSoup:

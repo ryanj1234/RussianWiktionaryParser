@@ -1,4 +1,5 @@
 import os
+import urllib
 from unittest.mock import patch
 import wiktionaryparser
 from bs4 import BeautifulSoup
@@ -13,6 +14,20 @@ logging.basicConfig(level=logging.DEBUG)
 def build_soup_from_file(word):
     full_file_path = os.path.join(dir_path, data_dir, f"{word} - Wiktionary.html")
     return BeautifulSoup(open(full_file_path, 'r', encoding='utf-8'), features="lxml")
+
+
+def build_soup_for_url(url):
+    word = urllib.parse.unquote(url.split('/')[-1])
+    if '#' in word:
+        word = ''.join(word.split('#')[:-1])
+    return build_soup_from_file(word)
+
+
+def run_mock_follow_to_base(entry):
+    with patch('wiktionaryparser.make_soup_from_url') as mock_fetch:
+        mock_fetch.side_effect = build_soup_for_url
+        entries = entry.follow_to_base()
+    return entries
 
 
 def run_fetch(word):
@@ -216,31 +231,81 @@ def test_russian():
     assert entries[0].inflections is not None
 
 
-def test_build_from_url():
-    # entries = run_fetch('https://en.wiktionary.org/wiki/%D0%BA%D0%BE%D1%82')
-    wiki = wiktionaryparser.WiktionaryParser()
-    entries = wiki.fetch_from_url('https://en.wiktionary.org/wiki/%D0%BA%D0%BE%D1%82')
+# def test_build_from_url():
+#     # entries = run_fetch('https://en.wiktionary.org/wiki/%D0%BA%D0%BE%D1%82')
+#     wiki = wiktionaryparser.WiktionaryParser()
+#     entries = wiki.fetch_from_url('https://en.wiktionary.org/wiki/%D0%BA%D0%BE%D1%82')
+#     assert len(entries) == 1, "Unexpected number of entries found"
+#     assert entries[0].part_of_speech == "Noun", "Incorrect part of speech found"
+#     assert len(entries[0].definitions) == 1, "Unexpected number of definitions found"
+#     assert entries[0].definitions[0].text == "tomcat"
+#     assert len(entries[0].definitions[0].examples) == 4, "Unexpected number of examples found"
+#     assert entries[0].definitions[0].examples[0].text == 'кот в сапога́х'
+#     assert entries[0].definitions[0].examples[1].text == 'кот наплакал'
+#     assert entries[0].definitions[0].examples[2].text == 'Не всё коту́ ма́сленица, придёт и вели́кий пост.'
+#     assert entries[0].definitions[0].examples[3].text == 'купи́ть кота́ в мешке́'
+#
+#     inflections = entries[0].inflections.to_json()
+#     assert inflections['nom|s'] == ['ко́т']
+#     assert inflections['nom|p'] == ['коты́']
+#
+#     assert inflections['gen|s'] == ['кота́']
+#     assert inflections['gen|p'] == ['кото́в']
+#     assert inflections['dat|s'] == ['коту́']
+#     assert inflections['dat|p'] == ['кота́м']
+#     assert inflections['acc|s'] == ['кота́']
+#     assert inflections['acc|p'] == ['кото́в']
+#     assert inflections['ins|s'] == ['кото́м']
+#     assert inflections['ins|p'] == ['кота́ми']
+#     assert inflections['pre|s'] == ['коте́']
+#     assert inflections['pre|p'] == ['кота́х']
+
+
+def test_person():
+    entries = run_fetch('человек')
     assert len(entries) == 1, "Unexpected number of entries found"
+
     assert entries[0].part_of_speech == "Noun", "Incorrect part of speech found"
-    assert len(entries[0].definitions) == 1, "Unexpected number of definitions found"
-    assert entries[0].definitions[0].text == "tomcat"
-    assert len(entries[0].definitions[0].examples) == 4, "Unexpected number of examples found"
-    assert entries[0].definitions[0].examples[0].text == 'кот в сапога́х'
-    assert entries[0].definitions[0].examples[1].text == 'кот наплакал'
-    assert entries[0].definitions[0].examples[2].text == 'Не всё коту́ ма́сленица, придёт и вели́кий пост.'
-    assert entries[0].definitions[0].examples[3].text == 'купи́ть кота́ в мешке́'
+    assert len(entries[0].definitions) == 3, "Unexpected number of definitions found"
+
+    assert entries[0].definitions[0].text == "person, human being, man"
+    assert entries[0].definitions[1].text == "(collective, singular only) mankind, man, the human race"
+    assert entries[0].definitions[2].text == "also plural when used with cardinal words:"
+    assert len(entries[0].definitions[2].examples) == 7, "Unexpected number of examples found"
 
     inflections = entries[0].inflections.to_json()
-    assert inflections['nom|s'] == ['ко́т']
-    assert inflections['nom|p'] == ['коты́']
+    assert inflections['nom|s'] == ['челове́к']
+    assert inflections['nom|p'] == ['лю́ди', 'челове́ки']
 
-    assert inflections['gen|s'] == ['кота́']
-    assert inflections['gen|p'] == ['кото́в']
-    assert inflections['dat|s'] == ['коту́']
-    assert inflections['dat|p'] == ['кота́м']
-    assert inflections['acc|s'] == ['кота́']
-    assert inflections['acc|p'] == ['кото́в']
-    assert inflections['ins|s'] == ['кото́м']
-    assert inflections['ins|p'] == ['кота́ми']
-    assert inflections['pre|s'] == ['коте́']
-    assert inflections['pre|p'] == ['кота́х']
+    assert inflections['gen|s'] == ['челове́ка']
+    assert inflections['gen|p'] == ['люде́й', 'челове́к', 'челове́ков']
+    assert inflections['dat|s'] == ['челове́ку']
+    assert inflections['dat|p'] == ['лю́дям', 'челове́кам']
+    assert inflections['acc|s'] == ['челове́ка']
+    assert inflections['acc|p'] == ['люде́й', 'челове́ков']
+    assert inflections['ins|s'] == ['челове́ком']
+    assert inflections['ins|p'] == ['людьми́', 'челове́ками']
+    assert inflections['pre|s'] == ['челове́ке']
+    assert inflections['pre|p'] == ['лю́дях', 'челове́ках']
+    assert inflections['voc|s'] == ['челове́че']
+
+
+def test_follow_to_base_to_drink():
+    entries = run_fetch('пила')
+    entries = run_mock_follow_to_base(entries[1])
+    assert entries[0].part_of_speech == "Verb", "Incorrect part of speech found"
+    assert len(entries[0].definitions) == 1, "Unexpected number of definitions found"
+
+    assert entries[0].definitions[0].text == "to drink"
+    assert len(entries[0].definitions[0].examples) == 2, "Unexpected number of examples found"
+    assert entries[0].definitions[0].examples[0].text == "как пи́ть дать (idiom)"
+    assert entries[0].definitions[0].examples[1].text == "пить го́рькую (idiom)"
+
+
+def test_follow_to_base_people():
+    entries = run_fetch('людей')
+    base_entries0 = run_mock_follow_to_base(entries[0])
+    base_entries1 = run_mock_follow_to_base(entries[1])
+
+    assert base_entries0[0].word == 'люди'
+    assert base_entries1[0].word == 'человек'
