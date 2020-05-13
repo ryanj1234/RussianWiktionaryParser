@@ -12,6 +12,7 @@ class WiktionaryInflectionTable:
     def __init__(self, table_soup: bs4.BeautifulSoup, part_of_speech):
         self._logger = logging.getLogger('WikiInf')
         self._json = {}
+        self._stripped = {}
         table_body = table_soup.tbody
 
         table_entries = table_body.find_all('span', {'class': re.compile('Cyrl form-of lang-ru')})
@@ -21,13 +22,20 @@ class WiktionaryInflectionTable:
                 if cls.endswith('-form-of'):
                     entry_key = cls.replace('-form-of', '')
                     item = entry.get_text().strip()
+                    # self._json[entry_key] = self._json.get(entry_key, []).append(item)
+                    # self._stripped[entry_key] = self._stripped.get(entry_key, []).append(item.replace('́', ''))
                     if entry_key in self._json:
                         self._json[entry_key].append(item)
+                        self._stripped[entry_key].append(item.replace('́', ''))
                     else:
                         self._json[entry_key] = [item]
+                        self._stripped[entry_key] = [item.replace('́', '')]
 
     def to_json(self):
         return self._json
+
+    def serialize(self):
+        return self._stripped
 
     def to_lower_set(self):
         inflection_set = set()
@@ -38,40 +46,57 @@ class WiktionaryInflectionTable:
 
 
 class WiktionaryExample:
-    def __init__(self, examples_tag):
+    def __init__(self, examples_tag=None):
         self._logger = logging.getLogger('WikiEx')
-        mention_tag = examples_tag.find('i', {'class': 'Cyrl mention e-example'})
-        if mention_tag is not None:
-            self.text = mention_tag.get_text()
-        else:
-            self.text = ''
+        self.text = ''
+        if examples_tag is not None:
+            mention_tag = examples_tag.find('i', {'class': 'Cyrl mention e-example'})
+            if mention_tag is not None:
+                self.text = mention_tag.get_text()
+
+    @classmethod
+    def build_from_serial(cls, example):
+        wiki_ex = WiktionaryExample()
+        wiki_ex.text = example
+        return wiki_ex
 
 
 class WiktionaryDefinition:
-    def __init__(self, list_item):
+    def __init__(self, list_item=None):
         self._logger = logging.getLogger('WikiDef')
-        self.base_word = None
+        self.base_word = ''
         self.base_link = None
+        self.text = ''
         self.examples = []
-        base_ref = list_item.find('span', {'class': 'form-of-definition-link'})
-        if base_ref is not None:
-            self.base_word = base_ref.i.a.get_text()
-            self.base_link = base_ref.i.a['href']
 
-        citations = list_item.find_all('span', {'class': 'HQToggle'})
-        for citation in citations:
-            citation.decompose()
-        citation_ul = list_item.find('div', {'class': 'citation-whole'})
-        if citation_ul is not None:
-            citation_ul.decompose()
-        h_usage_tags = list_item.find_all('div', {'class': 'h-usage-example'})
-        for usage_tag in h_usage_tags:
-            usage_tag.extract()
-            self._parse_usage_tag(usage_tag)
-        self.text = list_item.get_text().strip()
+        if list_item is not None:
+            base_ref = list_item.find('span', {'class': 'form-of-definition-link'})
+            if base_ref is not None:
+                self.base_word = base_ref.i.a.get_text()
+                self.base_link = base_ref.i.a['href']
+
+            citations = list_item.find_all('span', {'class': 'HQToggle'})
+            for citation in citations:
+                citation.decompose()
+            citation_ul = list_item.find('div', {'class': 'citation-whole'})
+            if citation_ul is not None:
+                citation_ul.decompose()
+            h_usage_tags = list_item.find_all('div', {'class': 'h-usage-example'})
+            for usage_tag in h_usage_tags:
+                usage_tag.extract()
+                self._parse_usage_tag(usage_tag)
+            self.text = list_item.get_text().strip()
 
     def _parse_usage_tag(self, usage_tag):
         self.examples.append(WiktionaryExample(usage_tag))
+
+    @classmethod
+    def build_from_serial(cls, serial):
+        wiki_def = WiktionaryDefinition()
+        wiki_def.text = serial['text']
+        for example in serial['examples']:
+            wiki_def.examples.append(WiktionaryExample.build_from_serial(example))
+        return wiki_def
 
 
 class WiktionaryEntry:
@@ -79,7 +104,7 @@ class WiktionaryEntry:
                 'Adverb', 'Participle', 'Letter', 'Prefix', 'Punctuation_mark', 'Interjection', 'Determiner',
                 'Predicative']
 
-    def __init__(self, word, soup, part_of_speech=None, tracing=None):
+    def __init__(self, word, soup=None, part_of_speech=None, tracing=None):
         self._logger = logging.getLogger('Wiki-%s' % word)
         self.word = word
         self._soup = soup
@@ -90,10 +115,19 @@ class WiktionaryEntry:
         self.base_links_set = set()
         self.tracing = tracing if tracing is not None else []
 
-        self._parse_part_of_speech(part_of_speech)
-        self._parse_definitions()
-        self._parse_inflection_table()
-        self._parse_base_links()
+        if self._soup is not None:
+            self._parse_part_of_speech(part_of_speech)
+            self._parse_definitions()
+            self._parse_inflection_table()
+            self._parse_base_links()
+
+    @classmethod
+    def build_from_serial(cls, serial):
+        entry = WiktionaryEntry(serial['word'])
+        entry.part_of_speech = serial['part_of_speech']
+        for definition in serial.get('definitions', []):
+            entry.definitions.append(WiktionaryDefinition.build_from_serial(definition))
+        return entry
 
     def follow_to_base(self):
         entries = []
@@ -178,6 +212,20 @@ class WiktionaryEntry:
             self.inflections = WiktionaryInflectionTable(inflection_table, self.part_of_speech)
         else:
             self._logger.debug('No inflection table found')
+
+    def serialize(self):
+        ser = {'word': self.word,
+               'part_of_speech': self.part_of_speech,
+               'definitions': [],
+               'inflections': {}}
+        for definition in self.definitions:
+            examples = []
+            for example in definition.examples:
+                examples.append(example.text)
+            ser['definitions'].append({'text': definition.text, 'examples': examples, 'base_word': definition.base_word})
+        if self.inflections is not None:
+            ser['inflections'] = self.inflections.serialize()
+        return ser
 
     def __str__(self):
         self_str = f"{self.word}: {self.part_of_speech}\n"
