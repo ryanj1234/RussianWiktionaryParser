@@ -134,6 +134,8 @@ class WiktionaryEntry:
         entry.part_of_speech = serial['part_of_speech']
         for definition in serial.get('definitions', []):
             entry.definitions.append(WiktionaryDefinition.build_from_serial(definition))
+        if 'inflections' in serial:
+            entry.inflections = WiktionaryInflectionTable.build_from_serial(serial['inflections'])
         return entry
 
     def follow_to_base(self):
