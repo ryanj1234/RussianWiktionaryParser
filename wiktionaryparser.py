@@ -8,7 +8,7 @@ import logging
 
 
 class WiktionaryInflectionTable:
-    def __init__(self, table_soup: bs4.BeautifulSoup, part_of_speech):
+    def __init__(self, table_soup: bs4.BeautifulSoup):
         self._logger = logging.getLogger('WikiInf')
         self._json = {}
         self._stripped = {}
@@ -218,7 +218,7 @@ class WiktionaryEntry:
     def _parse_inflection_table(self):
         inflection_table = self._soup.find('table', {'class': re.compile('inflection-table')})
         if inflection_table is not None:
-            self.inflections = WiktionaryInflectionTable(inflection_table, self.part_of_speech)
+            self.inflections = WiktionaryInflectionTable(inflection_table)
         else:
             self._logger.debug('No inflection table found')
 
