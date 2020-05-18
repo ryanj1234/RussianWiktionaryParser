@@ -2,7 +2,6 @@ import copy
 import json
 import re
 import urllib
-
 import bs4
 import requests
 import logging
@@ -13,23 +12,25 @@ class WiktionaryInflectionTable:
         self._logger = logging.getLogger('WikiInf')
         self._json = {}
         self._stripped = {}
-        table_body = table_soup.tbody
 
-        table_entries = table_body.find_all('span', {'class': re.compile('Cyrl form-of lang-ru')})
-        for entry in table_entries:
-            classes = entry['class']
-            for cls in classes:
-                if cls.endswith('-form-of'):
-                    entry_key = cls.replace('-form-of', '')
-                    item = entry.get_text().strip()
-                    # self._json[entry_key] = self._json.get(entry_key, []).append(item)
-                    # self._stripped[entry_key] = self._stripped.get(entry_key, []).append(item.replace('́', ''))
-                    if entry_key in self._json:
-                        self._json[entry_key].append(item)
-                        self._stripped[entry_key].append(item.replace('́', ''))
-                    else:
-                        self._json[entry_key] = [item]
-                        self._stripped[entry_key] = [item.replace('́', '')]
+        if table_soup is not None:
+            table_body = table_soup.tbody
+
+            table_entries = table_body.find_all('span', {'class': re.compile('Cyrl form-of lang-ru')})
+            for entry in table_entries:
+                classes = entry['class']
+                for cls in classes:
+                    if cls.endswith('-form-of'):
+                        entry_key = cls.replace('-form-of', '')
+                        item = entry.get_text().strip()
+                        # self._json[entry_key] = self._json.get(entry_key, []).append(item)
+                        # self._stripped[entry_key] = self._stripped.get(entry_key, []).append(item.replace('́', ''))
+                        if entry_key in self._json:
+                            self._json[entry_key].append(item)
+                            self._stripped[entry_key].append(item.replace('́', ''))
+                        else:
+                            self._json[entry_key] = [item]
+                            self._stripped[entry_key] = [item.replace('́', '')]
 
     def to_json(self):
         return self._json
@@ -43,6 +44,12 @@ class WiktionaryInflectionTable:
             for item in self._json[key]:
                 inflection_set.add(item.lower().replace('́', ''))
         return inflection_set
+
+    @classmethod
+    def build_from_serial(cls, inflections):
+        inflections_table = WiktionaryInflectionTable(None)
+        inflections_table._json = inflections
+        return inflections_table
 
 
 class WiktionaryExample:
