@@ -256,9 +256,9 @@ class WiktionaryPageParser:
         if self.filtered_soup is not None:
             if toc_entries:
                 for entry in toc_entries:
-                    self.entries.append(WiktionaryEntry(entered_word, self.filtered_soup, entry))
+                    self.entries.append(WiktionaryEntry(self.page_title, self.filtered_soup, entry))
             else:
-                self.entries = [WiktionaryEntry(entered_word, self.filtered_soup)]
+                self.entries = [WiktionaryEntry(self.page_title, self.filtered_soup)]
         else:
             self._logger.debug('No russian entries found for word %s' % entered_word)
 
@@ -310,8 +310,12 @@ class WiktionaryPageParser:
         return entry_list
 
     def _get_title(self):
-        # TODO
-        pass
+        first_heading = self.raw_soup.find('h1', {'class': 'firstHeading'})
+        if first_heading is not None:
+            self.page_title = first_heading.get_text()
+            self._logger.debug('Page title found: %s', self.page_title)
+        else:
+            self._logger.warning('Could not find title in page')
 
 
 def parse_word_from_url(url):
