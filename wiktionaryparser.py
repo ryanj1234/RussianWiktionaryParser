@@ -1,5 +1,6 @@
 import copy
 import json
+import os
 import re
 import urllib
 import logging
@@ -341,6 +342,23 @@ class WiktionaryParser:
             self._logger.info('Error received from server: %u', resp.status_code)
         return results
 
+    def download_audio(self, link, destination='.'):
+        audio_file_page = requests.get(f'https://en.wiktionary.org{link}')
+        if audio_file_page.status_code == 200:
+            soup = bs4.BeautifulSoup(audio_file_page.content, features='lxml')
+            full_media = soup.find('div', {'class': 'fullMedia'})
+            if full_media is not None:
+                file_name = full_media.p.a['title']
+                file_link = full_media.p.a['href']
+                self._logger.debug('Downloading file %s', file_name)
+                audio_file = requests.get(f'https:{file_link}')
+                open(os.path.join(destination, file_name), 'wb').write(audio_file.content)
+            else:
+                self._logger.warning('Could not find media file on page')
+
+        else:
+            self._logger.warning('Error fetching file %s', link)
+
 
 def parse_word_from_url(url):
     entered_word = urllib.parse.unquote(url.split('/')[-1])
@@ -384,3 +402,7 @@ def get_parts_of_speech(soup):
         if remove_trailing_numbers(text) in WiktionaryEntry.pos_list:
             pos_list.append(headline)
     return pos_list
+
+
+def get_filename_from_link(link):
+    return urllib.parse.unquote(link.split('/')[-1]).replace('File:', '')
