@@ -352,12 +352,15 @@ class WiktionaryParser:
                 file_link = full_media.p.a['href']
                 self._logger.debug('Downloading file %s', file_name)
                 audio_file = requests.get(f'https:{file_link}')
-                open(os.path.join(destination, file_name), 'wb').write(audio_file.content)
+                file_dest = os.path.join(destination, file_name)
+                open(file_dest, 'wb').write(audio_file.content)
+                return file_dest
             else:
                 self._logger.warning('Could not find media file on page')
-
+                return None
         else:
             self._logger.warning('Error fetching file %s', link)
+            return None
 
 
 def parse_word_from_url(url):
