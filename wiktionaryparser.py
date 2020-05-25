@@ -2,9 +2,9 @@ import copy
 import json
 import re
 import urllib
+import logging
 import bs4
 import requests
-import logging
 
 
 class WiktionaryInflectionTable:
@@ -181,20 +181,6 @@ class WiktionaryEntry:
         self.part_of_speech = stripped_heading_id
         self._logger.debug('Part of speech found: %s', self.part_of_speech)
 
-    def _find_part_of_speech(self):
-        pos_headings = self._soup.find_all('span', {'class': 'mw-headline'})
-        for heading in pos_headings:
-            heading_id = heading.get('id')
-            if heading_id is not None:
-                stripped_heading_id = remove_trailing_numbers(heading_id)
-                if stripped_heading_id in WiktionaryEntry.pos_list:
-                    self.part_of_speech = stripped_heading_id
-                    self._pos_heading = heading
-                    self._logger.debug('Part of speech found: %s', self.part_of_speech)
-                    break
-        else:
-            self._logger.error('Could not determine part of speech')
-
     def _parse_definitions(self):
         if self._pos_heading is not None:
             next_items = self._pos_heading.parent.find_next_siblings()
@@ -210,14 +196,6 @@ class WiktionaryEntry:
     def _parse_definition(self, definition):
         if definition.name == 'li':
             self.definitions.append(WiktionaryDefinition(definition))
-
-    def _find_speech_header(self, part_of_speech):
-        pos_heading = self._soup.find('span', {'class': 'mw-headline', 'id': part_of_speech})
-        if pos_heading is None:
-            self._logger.debug('Could not find provided part of speech header: %s', part_of_speech)
-        else:
-            self._pos_heading = pos_heading
-            self.part_of_speech = remove_trailing_numbers(part_of_speech).replace('_', ' ')
 
     def _parse_inflection_table(self):
         inflection_table = self._soup.find('table', {'class': re.compile('inflection-table')})
@@ -258,7 +236,7 @@ class WiktionaryEntry:
         return self_str.replace('́', '')  # remove accents
 
 
-def split_page_by_etymology(filtered_soup, etymologies):
+def split_page_by_etymology(etymologies):
     split_page = []
     for i, etymology in enumerate(etymologies):
         new_page = bs4.BeautifulSoup("<html><body><div class=\"mw-parser-output\"></div></body></html>",
@@ -290,7 +268,7 @@ class WiktionaryPageParser:
         if self.filtered_soup is not None:
             etymologies = self.filtered_soup.find_all('span', {'class': 'mw-headline', 'id': re.compile('Etymology')})
             if len(etymologies) > 1:
-                split_page = split_page_by_etymology(self.filtered_soup, etymologies)
+                split_page = split_page_by_etymology(etymologies)
             else:
                 split_page = [self.filtered_soup]
 
@@ -322,28 +300,6 @@ class WiktionaryPageParser:
 
             return new_page
         return None
-
-    def _get_table_of_contents(self):
-        contents = self.raw_soup.find_all('span', {'class': 'toctext'})
-        for content in contents:
-            if content.get_text() == 'Russian':
-                return content
-        return None
-
-    def _parse_toc(self):
-        self.toc = self._get_table_of_contents()
-        entry_list = []
-        if self.toc is not None:
-            toc_section = self.toc.parent.parent
-            item_list = toc_section.ul
-            possible_items = item_list.find_all('a')
-            for anchor in possible_items:
-                href = anchor['href']
-                if '#' in href:
-                    href = href.split('#')[1]
-                    if remove_trailing_numbers(href) in WiktionaryEntry.pos_list:
-                        entry_list.append(href)
-        return entry_list
 
     def _get_title(self):
         first_heading = self.raw_soup.find('h1', {'class': 'firstHeading'})
