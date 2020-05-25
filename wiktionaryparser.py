@@ -92,7 +92,8 @@ class WiktionaryDefinition:
             for usage_tag in h_usage_tags:
                 usage_tag.extract()
                 self._parse_usage_tag(usage_tag)
-            self.text = list_item.get_text().strip()
+            tmp_text = list_item.get_text().strip()
+            self.text = " ".join(tmp_text.split())  # get rid of any double spaces
 
     def _parse_usage_tag(self, usage_tag):
         self.examples.append(WiktionaryExample(usage_tag))
@@ -107,25 +108,28 @@ class WiktionaryDefinition:
 
 
 class WiktionaryEntry:
-    pos_list = ['Verb', 'Noun', 'Adjective', 'Pronoun', 'Conjunction', 'Proper_noun', 'Numeral', 'Preposition',
-                'Adverb', 'Participle', 'Letter', 'Prefix', 'Punctuation_mark', 'Interjection', 'Determiner',
+    pos_list = ['Verb', 'Noun', 'Adjective', 'Pronoun', 'Conjunction', 'Proper noun', 'Numeral', 'Preposition',
+                'Adverb', 'Participle', 'Letter', 'Prefix', 'Punctuation mark', 'Interjection', 'Determiner',
                 'Predicative']
 
-    def __init__(self, word, soup=None, part_of_speech=None, tracing=None):
+    def __init__(self, word, pos_header=None, tracing=None):
         self._logger = logging.getLogger('Wiki-%s' % word)
         self.word = word
-        self._soup = soup
+        self._soup = None
         self.part_of_speech = ''
         self.definitions = []
         self.inflections = None
+        self.audio_links = []
         self.base_links = []
         self.base_links_set = set()
         self.tracing = tracing if tracing is not None else []
 
-        if self._soup is not None:
-            self._parse_part_of_speech(part_of_speech)
+        if pos_header is not None:
+            self._soup = pos_header.parent.parent
+            self._parse_part_of_speech(pos_header)
             self._parse_definitions()
             self._parse_inflection_table()
+            self._parse_audio_links()
             self._parse_base_links()
 
     @classmethod
@@ -170,12 +174,12 @@ class WiktionaryEntry:
                     }
                 )
 
-    def _parse_part_of_speech(self, part_of_speech):
-        self._pos_heading = None
-        if part_of_speech is None:
-            self._find_part_of_speech()
-        else:
-            self._find_speech_header(part_of_speech)
+    def _parse_part_of_speech(self, pos_header):
+        self._pos_heading = pos_header
+        heading_id = pos_header['id']
+        stripped_heading_id = remove_trailing_numbers(heading_id).replace('_', ' ')
+        self.part_of_speech = stripped_heading_id
+        self._logger.debug('Part of speech found: %s', self.part_of_speech)
 
     def _find_part_of_speech(self):
         pos_headings = self._soup.find_all('span', {'class': 'mw-headline'})
@@ -236,6 +240,15 @@ class WiktionaryEntry:
             ser['inflections'] = self.inflections.serialize()
         return ser
 
+    def _parse_audio_links(self):
+        audio_meta = self._soup.find_all('td', {'class': 'audiometa'})
+        if audio_meta:
+            self._logger.debug('%i audio links found', len(audio_meta))
+            for meta_data in audio_meta:
+                self.audio_links.append(meta_data.a['href'])
+        else:
+            self._logger.debug('No audio links found')
+
     def __str__(self):
         self_str = f"{self.word}: {self.part_of_speech}\n"
         for i, definition in enumerate(self.definitions):
@@ -245,6 +258,26 @@ class WiktionaryEntry:
         return self_str.replace('́', '')  # remove accents
 
 
+def split_page_by_etymology(filtered_soup, etymologies):
+    split_page = []
+    for i, etymology in enumerate(etymologies):
+        new_page = bs4.BeautifulSoup("<html><body><div class=\"mw-parser-output\"></div></body></html>",
+                                     features="lxml")
+        etymology_parent = etymology.parent
+        if etymology_parent is not None and etymology_parent.name == 'h3':
+            next_sibling = etymology_parent.next_sibling
+            next_etymology = etymologies[i+1].parent if i+1 < len(etymologies) else None
+            while next_sibling != next_etymology:
+                new_page.body.div.append(copy.copy(next_sibling))
+                next_sibling = next_sibling.next_sibling
+        else:
+            logging.debug('Error parsing etymologies')
+            return split_page
+
+        split_page.append(new_page)
+    return split_page
+
+
 class WiktionaryPageParser:
     def __init__(self, entered_word, soup: bs4.BeautifulSoup):
         self._logger = logging.getLogger('WikiPageParser')
@@ -252,17 +285,18 @@ class WiktionaryPageParser:
         self.raw_soup = soup
         self._get_title()
         self.filtered_soup = self.filter_language()
-        toc_entries = self._parse_toc()
-
         self.entries = []
-        if self.filtered_soup is not None:
-            if toc_entries:
-                for entry in toc_entries:
-                    self.entries.append(WiktionaryEntry(self.page_title, self.filtered_soup, entry))
-            else:
-                self.entries = [WiktionaryEntry(self.page_title, self.filtered_soup)]
+
+        etymologies = self.filtered_soup.find_all('span', {'class': 'mw-headline', 'id': re.compile('Etymology')})
+        if len(etymologies) > 1:
+            split_page = split_page_by_etymology(self.filtered_soup, etymologies)
         else:
-            self._logger.debug('No russian entries found for word %s' % entered_word)
+            split_page = [self.filtered_soup]
+
+        for page in split_page:
+            pos_list = get_parts_of_speech(page)
+            for pos in pos_list:
+                self.entries.append(WiktionaryEntry(self.page_title, pos))
 
     def get_entries(self):
         return self.entries
@@ -306,7 +340,6 @@ class WiktionaryPageParser:
                 href = anchor['href']
                 if '#' in href:
                     href = href.split('#')[1]
-                    # stripped_pos = href.split('_')[0]
                     if remove_trailing_numbers(href) in WiktionaryEntry.pos_list:
                         entry_list.append(href)
         return entry_list
@@ -318,13 +351,6 @@ class WiktionaryPageParser:
             self._logger.debug('Page title found: %s', self.page_title)
         else:
             self._logger.warning('Could not find title in page')
-
-
-def parse_word_from_url(url):
-    entered_word = urllib.parse.unquote(url.split('/')[-1])
-    if '#' in entered_word:
-        entered_word = ''.join(entered_word.split('#')[:-1])
-    return entered_word
 
 
 class WiktionaryParser:
@@ -342,7 +368,7 @@ class WiktionaryParser:
 
     def fetch(self, entered_word):
         self._logger.info('Fetching page for word %s', entered_word)
-        raw_soup = self.make_soup(entered_word)
+        raw_soup = make_soup(entered_word)
         if raw_soup is not None:
             wiki_page = WiktionaryPageParser(entered_word, raw_soup)
             return wiki_page.get_entries()
@@ -358,17 +384,24 @@ class WiktionaryParser:
             self._logger.info('Error received from server: %u', resp.status_code)
         return results
 
-    def make_soup(self, word: str) -> bs4.BeautifulSoup:
-        """Fetch wiki entry for given word and make some beautiful soup out if it."""
-        # resp = requests.get(f'https://en.wiktionary.org/wiki/{word}')
-        resp = requests.get(
-            f'https://en.wiktionary.org/w/index.php?search={word}+&title=Special%3ASearch&go=Go&wprov=acrw1_-1')
-        if resp.status_code == 200:
-            return bs4.BeautifulSoup(resp.content, features="lxml")
-        return None
+
+def parse_word_from_url(url):
+    entered_word = urllib.parse.unquote(url.split('/')[-1])
+    if '#' in entered_word:
+        entered_word = ''.join(entered_word.split('#')[:-1])
+    return entered_word
 
 
-def make_soup_from_url(url) -> bs4.BeautifulSoup:
+def make_soup(word: str):
+    """Fetch wiki entry for given word and make some beautiful soup out if it."""
+    resp = requests.get(
+        f'https://en.wiktionary.org/w/index.php?search={word}+&title=Special%3ASearch&go=Go&wprov=acrw1_-1')
+    if resp.status_code == 200:
+        return bs4.BeautifulSoup(resp.content, features="lxml")
+    return None
+
+
+def make_soup_from_url(url):
     """Fetch wiki entry for given word and make some beautiful soup out if it."""
     resp = requests.get(url)
     if resp.status_code == 200:
@@ -384,3 +417,13 @@ def remove_trailing_numbers(heading_id):
     else:
         stripped_heading_id = heading_id
     return stripped_heading_id
+
+
+def get_parts_of_speech(soup):
+    pos_list = []
+    headlines = soup.find_all('span', {'class': 'mw-headline'})
+    for headline in headlines:
+        text = headline.get_text()
+        if remove_trailing_numbers(text) in WiktionaryEntry.pos_list:
+            pos_list.append(headline)
+    return pos_list

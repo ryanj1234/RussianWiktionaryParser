@@ -32,7 +32,7 @@ def run_mock_follow_to_base(entry):
 
 def run_fetch(word):
     wiki = wiktionaryparser.WiktionaryParser()
-    with patch('wiktionaryparser.WiktionaryParser.make_soup') as mock_fetch:
+    with patch('wiktionaryparser.make_soup') as mock_fetch:
         mock_fetch.side_effect = build_soup_from_file
         entries = wiki.fetch(word)
     return entries
@@ -45,6 +45,9 @@ def test_to_say():
     assert len(entries[0].definitions) == 1, "Unexpected number of definitions found"
     assert entries[0].definitions[0].text == "to say, to tell"
     assert len(entries[0].definitions[0].examples) == 0, "Unexpected number of examples found"
+
+    assert len(entries[0].audio_links) == 1, "Unexpected number of audio links found"
+    assert entries[0].audio_links[0].endswith("/wiki/File:Ru-%D1%81%D0%BA%D0%B0%D0%B7%D0%B0%D1%82%D1%8C.ogg")
 
     inflections = entries[0].inflections.to_json()
     assert inflections['inf'] == ['сказа́ть']
@@ -80,6 +83,9 @@ def test_cat():
     assert entries[0].definitions[0].examples[2].text == 'Не всё коту́ ма́сленица, придёт и вели́кий пост.'
     assert entries[0].definitions[0].examples[3].text == 'купи́ть кота́ в мешке́'
 
+    assert len(entries[0].audio_links) == 1, "Unexpected number of audio links found"
+    assert entries[0].audio_links[0].endswith("/wiki/File:Ru-%D0%BA%D0%BE%D1%82.ogg")
+
     inflections = entries[0].inflections.to_json()
     assert inflections['nom|s'] == ['ко́т']
     assert inflections['nom|p'] == ['коты́']
@@ -109,6 +115,11 @@ def test_thin():
     assert len(entries[1].definitions) == 2, "Unexpected number of definitions found"
     assert entries[1].definitions[0].text == "bad"
     assert len(entries[1].definitions[0].examples) == 0, "Unexpected number of examples found"
+
+    assert len(entries[0].audio_links) == 1, "Unexpected number of audio links found"
+    assert entries[0].audio_links[0].endswith("/wiki/File:Ru-%D1%85%D1%83%D0%B4%D0%BE%D0%B9.ogg")
+    assert len(entries[1].audio_links) == 1, "Unexpected number of audio links found"
+    assert entries[1].audio_links[0].endswith("/wiki/File:Ru-%D1%85%D1%83%D0%B4%D0%BE%D0%B9.ogg")
 
     inflections = entries[0].inflections.to_json()
     assert inflections['nom|m|s'] == ['худо́й']
@@ -157,6 +168,8 @@ def test_said():
     assert entries[0].definitions[0].base_word == 'сказа́ть'
     assert entries[0].definitions[0].base_link.endswith('/wiki/%D1%81%D0%BA%D0%B0%D0%B7%D0%B0%D1%82%D1%8C#Russian')
 
+    assert len(entries[0].audio_links) == 0, "Unexpected number of audio links found"
+
     assert entries[0].inflections is None
 
 
@@ -174,6 +187,9 @@ def test_to_obey():
 
     assert entries[0].definitions[1].base_word == 'подчиня́ть'
     assert entries[0].definitions[1].base_link.endswith('/wiki/%D0%BF%D0%BE%D0%B4%D1%87%D0%B8%D0%BD%D1%8F%D1%82%D1%8C#Russian')
+
+    assert len(entries[0].audio_links) == 1, "Unexpected number of audio links found"
+    assert entries[0].audio_links[0].endswith("/wiki/File:Ru-%D0%BF%D0%BE%D0%B4%D1%87%D0%B8%D0%BD%D1%8F%D1%82%D1%8C%D1%81%D1%8F.ogg")
 
     inflections = entries[0].inflections.to_json()
     assert inflections['inf'] == ['подчиня́ться']
@@ -288,6 +304,56 @@ def test_person():
     assert inflections['pre|s'] == ['челове́ке']
     assert inflections['pre|p'] == ['лю́дях', 'челове́ках']
     assert inflections['voc|s'] == ['челове́че']
+
+
+def test_great():
+    """здорово has multiple entries with different pronunciations/etymologies"""
+    entries = run_fetch('здорово')
+    assert len(entries) == 5, "Unexpected number of entries found"
+
+    assert entries[0].part_of_speech == "Adverb", "Incorrect part of speech found"
+    assert len(entries[0].definitions) == 2, "Unexpected number of definitions found"
+    assert entries[0].definitions[0].text == "(colloquial) great, very well, awesomely"
+    assert entries[0].definitions[1].text == "(low colloquial) very strongly, to a very great extent"
+    assert len(entries[0].definitions[0].examples) == 0, "Unexpected number of examples found"
+    assert len(entries[0].definitions[1].examples) == 0, "Unexpected number of examples found"
+    assert len(entries[0].audio_links) == 1, "Unexpected number of audio links found"
+    assert entries[0].audio_links[0].endswith('/wiki/File:Ru-%D0%B7%D0%B4%D0%BE%D1%80%D0%BE%D0%B2%D0%BE.ogg')
+
+    assert entries[1].part_of_speech == "Predicative", "Incorrect part of speech found"
+    assert len(entries[1].definitions) == 1, "Unexpected number of definitions found"
+    assert entries[1].definitions[0].text == "(low colloquial) it is great, it is awesome, it is cool"
+    assert len(entries[1].definitions[0].examples) == 0, "Unexpected number of examples found"
+    assert len(entries[1].audio_links) == 1, "Unexpected number of audio links found"
+    assert entries[1].audio_links[0].endswith('/wiki/File:Ru-%D0%B7%D0%B4%D0%BE%D1%80%D0%BE%D0%B2%D0%BE.ogg')
+
+    assert entries[2].part_of_speech == "Interjection", "Incorrect part of speech found"
+    assert len(entries[2].definitions) == 1, "Unexpected number of definitions found"
+    assert entries[2].definitions[0].text == "(colloquial) great!, well done"
+    assert len(entries[2].definitions[0].examples) == 0, "Unexpected number of examples found"
+    assert len(entries[2].audio_links) == 1, "Unexpected number of audio links found"
+    assert entries[2].audio_links[0].endswith('/wiki/File:Ru-%D0%B7%D0%B4%D0%BE%D1%80%D0%BE%D0%B2%D0%BE.ogg')
+
+    assert entries[3].part_of_speech == "Interjection", "Incorrect part of speech found"
+    assert len(entries[3].definitions) == 1, "Unexpected number of definitions found"
+    assert entries[3].definitions[0].text == "(colloquial) hi!; hello!"
+    assert len(entries[3].definitions[0].examples) == 0, "Unexpected number of examples found"
+    assert len(entries[3].audio_links) == 0, "Unexpected number of audio links found"
+    assert entries[3].audio_links == []
+
+    assert entries[4].part_of_speech == "Adjective", "Incorrect part of speech found"
+    assert len(entries[4].definitions) == 2, "Unexpected number of definitions found"
+    assert entries[4].definitions[0].text == "short neuter singular of здоро́вый (zdoróvyj, “healthy, wholesome”)"
+    assert entries[4].definitions[1].text == "short neuter singular of здоро́вый (zdoróvyj, “strong, big”)"
+    assert len(entries[4].definitions[0].examples) == 0, "Unexpected number of examples found"
+    assert len(entries[4].definitions[1].examples) == 0, "Unexpected number of examples found"
+    assert len(entries[4].audio_links) == 0, "Unexpected number of audio links found"
+    assert entries[4].audio_links == []
+
+    assert entries[4].definitions[0].base_word == 'здоро́вый'
+    assert entries[4].definitions[0].base_link.endswith('/wiki/%D0%B7%D0%B4%D0%BE%D1%80%D0%BE%D0%B2%D1%8B%D0%B9#Russian')
+    assert entries[4].definitions[1].base_word == 'здоро́вый'
+    assert entries[4].definitions[1].base_link.endswith('/wiki/%D0%B7%D0%B4%D0%BE%D1%80%D0%BE%D0%B2%D1%8B%D0%B9#Russian')
 
 
 def test_follow_to_base_to_drink():
