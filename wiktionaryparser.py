@@ -287,16 +287,17 @@ class WiktionaryPageParser:
         self.filtered_soup = self.filter_language()
         self.entries = []
 
-        etymologies = self.filtered_soup.find_all('span', {'class': 'mw-headline', 'id': re.compile('Etymology')})
-        if len(etymologies) > 1:
-            split_page = split_page_by_etymology(self.filtered_soup, etymologies)
-        else:
-            split_page = [self.filtered_soup]
+        if self.filtered_soup is not None:
+            etymologies = self.filtered_soup.find_all('span', {'class': 'mw-headline', 'id': re.compile('Etymology')})
+            if len(etymologies) > 1:
+                split_page = split_page_by_etymology(self.filtered_soup, etymologies)
+            else:
+                split_page = [self.filtered_soup]
 
-        for page in split_page:
-            pos_list = get_parts_of_speech(page)
-            for pos in pos_list:
-                self.entries.append(WiktionaryEntry(self.page_title, pos))
+            for page in split_page:
+                pos_list = get_parts_of_speech(page)
+                for pos in pos_list:
+                    self.entries.append(WiktionaryEntry(self.page_title, pos))
 
     def get_entries(self):
         return self.entries
@@ -367,7 +368,7 @@ class WiktionaryParser:
         return []
 
     def fetch(self, entered_word):
-        self._logger.info('Fetching page for word %s', entered_word)
+        self._logger.info('Fetching page for word "%s"', entered_word)
         raw_soup = make_soup(entered_word)
         if raw_soup is not None:
             wiki_page = WiktionaryPageParser(entered_word, raw_soup)
