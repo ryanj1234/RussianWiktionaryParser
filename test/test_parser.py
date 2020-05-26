@@ -79,9 +79,13 @@ def test_cat():
     assert entries[0].definitions[0].text == "tomcat"
     assert len(entries[0].definitions[0].examples) == 4, "Unexpected number of examples found"
     assert entries[0].definitions[0].examples[0].text == 'кот в сапога́х'
+    assert entries[0].definitions[0].examples[0].translation == 'Puss in Boots'
     assert entries[0].definitions[0].examples[1].text == 'кот наплакал'
+    assert entries[0].definitions[0].examples[1].translation == 'nothing to speak of (next to nothing)'
     assert entries[0].definitions[0].examples[2].text == 'Не всё коту́ ма́сленица, придёт и вели́кий пост.'
+    assert entries[0].definitions[0].examples[2].translation == 'All good things must come to an end; You have to take the rough with the smooth.'
     assert entries[0].definitions[0].examples[3].text == 'купи́ть кота́ в мешке́'
+    assert entries[0].definitions[0].examples[3].translation == 'to buy a pig in a poke'
 
     assert len(entries[0].audio_links) == 1, "Unexpected number of audio links found"
     assert entries[0].audio_links[0].endswith("/wiki/File:Ru-%D0%BA%D0%BE%D1%82.ogg")
@@ -223,6 +227,7 @@ def test_saw():
     assert entries[0].definitions[0].text == "saw"
     assert len(entries[0].definitions[0].examples) == 1, "Unexpected number of examples found"
     assert entries[0].definitions[0].examples[0].text == "двуру́чная пила́"
+    assert entries[0].definitions[0].examples[0].translation == "lumberman's saw"
 
     # TODO: declension table
 
@@ -241,40 +246,13 @@ def test_russian():
     assert entries[0].definitions[0].text == "Russia (a country in Eastern Europe and Asia)"
     assert len(entries[0].definitions[0].examples) == 3, "Unexpected number of examples found"
     assert entries[0].definitions[0].examples[0].text == "в Росси́и"
+    assert entries[0].definitions[0].examples[0].translation == "in Russia"
     assert entries[0].definitions[0].examples[1].text == "в Росси́ю"
+    assert entries[0].definitions[0].examples[1].translation == "to Russia"
     assert entries[0].definitions[0].examples[2].text == "из Росси́и"
+    assert entries[0].definitions[0].examples[2].translation == "from Russia"
 
     assert entries[0].inflections is not None
-
-
-# def test_build_from_url():
-#     # entries = run_fetch('https://en.wiktionary.org/wiki/%D0%BA%D0%BE%D1%82')
-#     wiki = wiktionaryparser.WiktionaryParser()
-#     entries = wiki.fetch_from_url('https://en.wiktionary.org/wiki/%D0%BA%D0%BE%D1%82')
-#     assert len(entries) == 1, "Unexpected number of entries found"
-#     assert entries[0].part_of_speech == "Noun", "Incorrect part of speech found"
-#     assert len(entries[0].definitions) == 1, "Unexpected number of definitions found"
-#     assert entries[0].definitions[0].text == "tomcat"
-#     assert len(entries[0].definitions[0].examples) == 4, "Unexpected number of examples found"
-#     assert entries[0].definitions[0].examples[0].text == 'кот в сапога́х'
-#     assert entries[0].definitions[0].examples[1].text == 'кот наплакал'
-#     assert entries[0].definitions[0].examples[2].text == 'Не всё коту́ ма́сленица, придёт и вели́кий пост.'
-#     assert entries[0].definitions[0].examples[3].text == 'купи́ть кота́ в мешке́'
-#
-#     inflections = entries[0].inflections.to_json()
-#     assert inflections['nom|s'] == ['ко́т']
-#     assert inflections['nom|p'] == ['коты́']
-#
-#     assert inflections['gen|s'] == ['кота́']
-#     assert inflections['gen|p'] == ['кото́в']
-#     assert inflections['dat|s'] == ['коту́']
-#     assert inflections['dat|p'] == ['кота́м']
-#     assert inflections['acc|s'] == ['кота́']
-#     assert inflections['acc|p'] == ['кото́в']
-#     assert inflections['ins|s'] == ['кото́м']
-#     assert inflections['ins|p'] == ['кота́ми']
-#     assert inflections['pre|s'] == ['коте́']
-#     assert inflections['pre|p'] == ['кота́х']
 
 
 def test_person():
@@ -288,6 +266,20 @@ def test_person():
     assert entries[0].definitions[1].text == "(collective, singular only) mankind, man, the human race"
     assert entries[0].definitions[2].text == "also plural when used with cardinal words:"
     assert len(entries[0].definitions[2].examples) == 7, "Unexpected number of examples found"
+    assert entries[0].definitions[2].examples[0].text == "оди́н челове́к"
+    assert entries[0].definitions[2].examples[0].translation == "one person"
+    assert entries[0].definitions[2].examples[1].text == "два челове́ка"
+    assert entries[0].definitions[2].examples[1].translation == "two persons, people"
+    assert entries[0].definitions[2].examples[2].text == "пять челове́к"
+    assert entries[0].definitions[2].examples[2].translation == "five persons, people"
+    assert entries[0].definitions[2].examples[3].text == "де́сять челове́к"
+    assert entries[0].definitions[2].examples[3].translation == "ten persons, people"
+    assert entries[0].definitions[2].examples[4].text == "два́дцать челове́к"
+    assert entries[0].definitions[2].examples[4].translation == "twenty persons, people"
+    assert entries[0].definitions[2].examples[5].text == "два́дцать оди́н челове́к"
+    assert entries[0].definitions[2].examples[5].translation == "twenty-one persons, people"
+    assert entries[0].definitions[2].examples[6].text == "два́дцать два челове́ка"
+    assert entries[0].definitions[2].examples[6].translation == "twenty-two persons, people"
 
     inflections = entries[0].inflections.to_json()
     assert inflections['nom|s'] == ['челове́к']
@@ -354,6 +346,18 @@ def test_great():
     assert entries[4].definitions[0].base_link.endswith('/wiki/%D0%B7%D0%B4%D0%BE%D1%80%D0%BE%D0%B2%D1%8B%D0%B9#Russian')
     assert entries[4].definitions[1].base_word == 'здоро́вый'
     assert entries[4].definitions[1].base_link.endswith('/wiki/%D0%B7%D0%B4%D0%BE%D1%80%D0%BE%D0%B2%D1%8B%D0%B9#Russian')
+
+
+def test_costs():
+    """издержка entry has an empty list item that needs to be ignored"""
+    entries = run_fetch('издержка')
+    assert len(entries) == 1, "Unexpected number of entries found"
+
+    assert entries[0].part_of_speech == "Noun", "Incorrect part of speech found"
+    assert len(entries[0].definitions) == 1, "Unexpected number of definitions found"
+
+    assert entries[0].definitions[0].text == "(usually plural) expenses, costs"
+    assert len(entries[0].definitions[0].examples) == 0, "Unexpected number of examples found"
 
 
 def test_follow_to_base_to_drink():

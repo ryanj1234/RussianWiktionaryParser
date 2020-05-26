@@ -57,10 +57,14 @@ class WiktionaryExample:
     def __init__(self, examples_tag=None):
         self._logger = logging.getLogger('WikiEx')
         self.text = ''
+        self.translation = ''
         if examples_tag is not None:
             mention_tag = examples_tag.find('i', {'class': 'Cyrl mention e-example'})
             if mention_tag is not None:
                 self.text = mention_tag.get_text()
+            translation_tag = examples_tag.find('span', {'class': 'e-translation'})
+            if translation_tag is not None:
+                self.translation = translation_tag.get_text()
 
     @classmethod
     def build_from_serial(cls, example):
@@ -195,7 +199,7 @@ class WiktionaryEntry:
                 self._logger.debug('No definition list found')
 
     def _parse_definition(self, definition):
-        if definition.name == 'li':
+        if definition.name == 'li' and definition.attrs.get('class') != ['mw-empty-elt']:
             self.definitions.append(WiktionaryDefinition(definition))
 
     def _parse_inflection_table(self):
@@ -233,7 +237,7 @@ class WiktionaryEntry:
         for i, definition in enumerate(self.definitions):
             self_str += f"\t{i + 1}. {definition.text}\n"
             for example in definition.examples:
-                self_str += f"\t\t{example.text}\n"
+                self_str += f"\t\t{example.text} - {example.translation}\n"
         return self_str.replace('́', '')  # remove accents
 
 
