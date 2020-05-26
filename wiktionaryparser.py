@@ -6,6 +6,7 @@ import urllib
 import logging
 import bs4
 import requests
+from pydub import AudioSegment
 
 
 class WiktionaryInflectionTable:
@@ -315,6 +316,12 @@ class WiktionaryPageParser:
             self._logger.warning('Could not find title in page')
 
 
+def convert_ogg_to_mp3(ogg_file):
+    mp3_file = ogg_file.replace('.ogg', '.mp3')
+    AudioSegment.from_file(ogg_file).export(mp3_file, format="mp3")
+    return mp3_file
+
+
 class WiktionaryParser:
     def __init__(self):
         self._logger = logging.getLogger('WiktionaryParser')
@@ -358,6 +365,8 @@ class WiktionaryParser:
                 audio_file = requests.get(f'https:{file_link}')
                 file_dest = os.path.join(destination, file_name)
                 open(file_dest, 'wb').write(audio_file.content)
+                if not '.mp3' in file_dest:
+                    file_dest = convert_ogg_to_mp3(file_dest)
                 return file_dest
             else:
                 self._logger.warning('Could not find media file on page')
