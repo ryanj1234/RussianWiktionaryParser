@@ -219,7 +219,8 @@ class WiktionaryEntry:
             examples = []
             for example in definition.examples:
                 examples.append(example.text)
-            ser['definitions'].append({'text': definition.text, 'examples': examples, 'base_word': definition.base_word})
+            ser['definitions'].append(
+                {'text': definition.text, 'examples': examples, 'base_word': definition.base_word})
         if self.inflections is not None:
             ser['inflections'] = self.inflections.serialize()
         return ser
@@ -250,7 +251,7 @@ def split_page_by_etymology(etymologies):
         etymology_parent = etymology.parent
         if etymology_parent is not None and etymology_parent.name == 'h3':
             next_sibling = etymology_parent.next_sibling
-            next_etymology = etymologies[i+1].parent if i+1 < len(etymologies) else None
+            next_etymology = etymologies[i + 1].parent if i + 1 < len(etymologies) else None
             while next_sibling != next_etymology:
                 new_page.body.div.append(copy.copy(next_sibling))
                 next_sibling = next_sibling.next_sibling
@@ -365,7 +366,7 @@ class WiktionaryParser:
                 audio_file = requests.get(f'https:{file_link}')
                 file_dest = os.path.join(destination, file_name)
                 open(file_dest, 'wb').write(audio_file.content)
-                if not '.mp3' in file_dest:
+                if '.mp3' not in file_dest:
                     file_dest = convert_ogg_to_mp3(file_dest)
                 return file_dest
             else:
