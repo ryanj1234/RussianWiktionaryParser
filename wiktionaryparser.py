@@ -7,6 +7,8 @@ import logging
 import bs4
 import requests
 from pydub import AudioSegment
+from .entries import WordEntry, WordDefinition, WordExample
+from .parsers import Parser
 
 
 class WiktionaryInflectionTable:
@@ -54,33 +56,35 @@ class WiktionaryInflectionTable:
         return inflections_table
 
 
-class WiktionaryExample:
+class WiktionaryExample(WordExample):
     def __init__(self, examples_tag=None):
+        super().__init__()
         self._logger = logging.getLogger('WikiEx')
-        self.text = ''
-        self.translation = ''
+        self._text = ''
+        self._translation = ''
         if examples_tag is not None:
             mention_tag = examples_tag.find('i', {'class': 'Cyrl mention e-example'})
             if mention_tag is not None:
-                self.text = mention_tag.get_text()
+                self._text = mention_tag.get_text()
             translation_tag = examples_tag.find('span', {'class': 'e-translation'})
             if translation_tag is not None:
-                self.translation = translation_tag.get_text()
+                self._translation = translation_tag.get_text()
 
     @classmethod
     def build_from_serial(cls, example):
         wiki_ex = WiktionaryExample()
-        wiki_ex.text = example
+        wiki_ex._text = example
         return wiki_ex
 
 
-class WiktionaryDefinition:
+class WiktionaryDefinition(WordDefinition):
     def __init__(self, list_item=None):
+        super().__init__()
         self._logger = logging.getLogger('WikiDef')
         self.base_word = ''
         self.base_link = None
-        self.text = ''
-        self.examples = []
+        self._text = ''
+        self._examples = []
 
         if list_item is not None:
             base_ref = list_item.find('span', {'class': 'form-of-definition-link'})
@@ -99,7 +103,7 @@ class WiktionaryDefinition:
                 usage_tag.extract()
                 self._parse_usage_tag(usage_tag)
             tmp_text = list_item.get_text().strip()
-            self.text = " ".join(tmp_text.split())  # get rid of any double spaces
+            self._text = " ".join(tmp_text.split())  # get rid of any double spaces
 
     def _parse_usage_tag(self, usage_tag):
         self.examples.append(WiktionaryExample(usage_tag))
@@ -107,18 +111,19 @@ class WiktionaryDefinition:
     @classmethod
     def build_from_serial(cls, serial):
         wiki_def = WiktionaryDefinition()
-        wiki_def.text = serial['text']
+        wiki_def._text = serial['text']
         for example in serial['examples']:
             wiki_def.examples.append(WiktionaryExample.build_from_serial(example))
         return wiki_def
 
 
-class WiktionaryEntry:
+class WiktionaryEntry(WordEntry):
     pos_list = ['Verb', 'Noun', 'Adjective', 'Pronoun', 'Conjunction', 'Proper noun', 'Numeral', 'Preposition',
                 'Adverb', 'Participle', 'Letter', 'Prefix', 'Punctuation mark', 'Interjection', 'Determiner',
                 'Predicative']
 
-    def __init__(self, word, pos_header=None, tracing=None):
+    def __init__(self, word, pos_header=None, tracing=None, *args, **kwargs):
+        super().__init__(word, *args, **kwargs)
         self._logger = logging.getLogger('Wiki-%s' % word)
         self.word = word
         self._soup = None
@@ -242,6 +247,16 @@ class WiktionaryEntry:
                 self_str += f"\t\t{example.text} - {example.translation}\n"
         return self_str.replace('́', '')  # remove accents
 
+    def __eq__(self, other):
+        if isinstance(other, WiktionaryEntry):
+            if self.word == other.word:
+                if self.part_of_speech == other.part_of_speech:
+                    for me, you in zip(self.definitions, other.definitions):
+                        if me.text != you.text:
+                            return False
+                    return True
+        return False
+
 
 def split_page_by_etymology(etymologies):
     split_page = []
@@ -323,9 +338,13 @@ def convert_ogg_to_mp3(ogg_file):
     return mp3_file
 
 
-class WiktionaryParser:
+class WiktionaryParser(Parser):
     def __init__(self):
         self._logger = logging.getLogger('WiktionaryParser')
+
+    def can_handle_entry(self, entry: any) -> bool:
+        if isinstance(entry, str):
+            return True
 
     def fetch_from_url(self, url):
         self._logger.debug('fetching from url')
