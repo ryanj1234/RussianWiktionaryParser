@@ -1,7 +1,7 @@
 import os
 import urllib
 from unittest.mock import patch
-import wiktionaryparser
+from russianwiktionaryparser import wiktionaryparser
 from bs4 import BeautifulSoup
 import logging
 
@@ -24,7 +24,7 @@ def build_soup_for_url(url):
 
 
 def run_mock_follow_to_base(entry):
-    with patch('wiktionaryparser.make_soup_from_url') as mock_fetch:
+    with patch('russianwiktionaryparser.wiktionaryparser.make_soup_from_url') as mock_fetch:
         mock_fetch.side_effect = build_soup_for_url
         entries = entry.follow_to_base()
     return entries
@@ -32,7 +32,7 @@ def run_mock_follow_to_base(entry):
 
 def run_fetch(word):
     wiki = wiktionaryparser.WiktionaryParser()
-    with patch('wiktionaryparser.make_soup') as mock_fetch:
+    with patch('russianwiktionaryparser.wiktionaryparser.make_soup') as mock_fetch:
         mock_fetch.side_effect = build_soup_from_file
         entries = wiki.fetch(word)
     return entries

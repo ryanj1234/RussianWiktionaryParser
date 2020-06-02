@@ -7,13 +7,14 @@ import logging
 import bs4
 import requests
 from pydub import AudioSegment
-from entries import WordEntry, WordDefinition, WordExample
-from parsers import Parser
+from . entries import WordEntry, WordDefinition, WordExample
+from . parsers import Parser
+
+_LOG = logging.getLogger(__name__)
 
 
 class WiktionaryInflectionTable:
     def __init__(self, table_soup: bs4.BeautifulSoup):
-        self._logger = logging.getLogger('WikiInf')
         self._json = {}
         self._stripped = {}
 
@@ -59,7 +60,6 @@ class WiktionaryInflectionTable:
 class WiktionaryExample(WordExample):
     def __init__(self, examples_tag=None):
         super().__init__()
-        self._logger = logging.getLogger('WikiEx')
         self._text = ''
         self._translation = ''
         if examples_tag is not None:
@@ -80,7 +80,6 @@ class WiktionaryExample(WordExample):
 class WiktionaryDefinition(WordDefinition):
     def __init__(self, list_item=None):
         super().__init__()
-        self._logger = logging.getLogger('WikiDef')
         self.base_word = ''
         self.base_link = None
         self._text = ''
@@ -124,7 +123,6 @@ class WiktionaryEntry(WordEntry):
 
     def __init__(self, word, pos_header=None, tracing=None, *args, **kwargs):
         super().__init__(word, *args, **kwargs)
-        self._logger = logging.getLogger('Wiki-%s' % word)
         self.word = word
         self._soup = None
         self.part_of_speech = ''
@@ -190,7 +188,7 @@ class WiktionaryEntry(WordEntry):
         heading_id = pos_header['id']
         stripped_heading_id = remove_trailing_numbers(heading_id).replace('_', ' ')
         self.part_of_speech = stripped_heading_id
-        self._logger.debug('Part of speech found: %s', self.part_of_speech)
+        _LOG.debug('Part of speech found: %s', self.part_of_speech)
 
     def _parse_definitions(self):
         if self._pos_heading is not None:
@@ -202,7 +200,7 @@ class WiktionaryEntry(WordEntry):
                         self._parse_definition(definition)
                     break
             else:
-                self._logger.debug('No definition list found')
+                _LOG.debug('No definition list found')
 
     def _parse_definition(self, definition):
         if definition.name == 'li' and definition.attrs.get('class') != ['mw-empty-elt']:
@@ -213,7 +211,7 @@ class WiktionaryEntry(WordEntry):
         if inflection_table is not None:
             self.inflections = WiktionaryInflectionTable(inflection_table)
         else:
-            self._logger.debug('No inflection table found')
+            _LOG.debug('No inflection table found')
 
     def serialize(self):
         ser = {'word': self.word,
@@ -233,11 +231,11 @@ class WiktionaryEntry(WordEntry):
     def _parse_audio_links(self):
         audio_meta = self._soup.find_all('td', {'class': 'audiometa'})
         if audio_meta:
-            self._logger.debug('%i audio links found', len(audio_meta))
+            _LOG.debug('%i audio links found', len(audio_meta))
             for meta_data in audio_meta:
                 self.audio_links.append(meta_data.a['href'])
         else:
-            self._logger.debug('No audio links found')
+            _LOG.debug('No audio links found')
 
     def __str__(self):
         self_str = f"{self.word}: {self.part_of_speech}\n"
@@ -280,12 +278,12 @@ def split_page_by_etymology(etymologies):
 
 class WiktionaryPageParser:
     def __init__(self, entered_word, soup: bs4.BeautifulSoup):
-        self._logger = logging.getLogger('WikiPageParser')
         self.entered_word = entered_word
         self.raw_soup = soup
         self._get_title()
         self.filtered_soup = self.filter_language()
         self.entries = []
+        self.page_title = ''
 
         if self.filtered_soup is not None:
             etymologies = self.filtered_soup.find_all('span', {'class': 'mw-headline', 'id': re.compile('Etymology')})
@@ -317,7 +315,7 @@ class WiktionaryPageParser:
                     new_page.body.div.append(copy.copy(next_sibling))
                     next_sibling = next_sibling.next_sibling
             else:
-                logging.debug('No russian entries found on page!')
+                logging.warning('No russian entries found on page!')
                 return None
 
             return new_page
@@ -327,9 +325,11 @@ class WiktionaryPageParser:
         first_heading = self.raw_soup.find('h1', {'class': 'firstHeading'})
         if first_heading is not None:
             self.page_title = first_heading.get_text()
-            self._logger.debug('Page title found: %s', self.page_title)
+            _LOG.debug('Page title found: %s', self.page_title)
+            if self.entered_word != self.page_title:
+                _LOG.info('Page redirected from word %s to %s', self.entered_word, self.page_title)
         else:
-            self._logger.warning('Could not find title in page')
+            _LOG.warning('Could not find title in page')
 
 
 def convert_ogg_to_mp3(ogg_file):
@@ -340,14 +340,14 @@ def convert_ogg_to_mp3(ogg_file):
 
 class WiktionaryParser(Parser):
     def __init__(self):
-        self._logger = logging.getLogger('WiktionaryParser')
+        pass
 
     def can_handle_entry(self, entry: any) -> bool:
         if isinstance(entry, str):
             return True
 
     def fetch_from_url(self, url):
-        self._logger.debug('fetching from url')
+        _LOG.debug('fetching from url')
         entered_word = parse_word_from_url(url)
         raw_soup = make_soup_from_url(url)
         if raw_soup is not None:
@@ -355,13 +355,19 @@ class WiktionaryParser(Parser):
             return wiki_page.get_entries()
         return []
 
-    def fetch(self, entered_word):
-        self._logger.info('Fetching page for word "%s"', entered_word)
+    def fetch(self, entered_word, follow_to_base=False):
+        _LOG.info('Fetching page for word "%s"', entered_word)
+        entries = []
         raw_soup = make_soup(entered_word)
         if raw_soup is not None:
             wiki_page = WiktionaryPageParser(entered_word, raw_soup)
-            return wiki_page.get_entries()
-        return []
+            entries = wiki_page.get_entries()
+            if follow_to_base:
+                # TODO
+                pass
+        else:
+            _LOG.error('Error fetching page')
+        return entries
 
     def search(self, word, limit=10):
         results = []
@@ -370,7 +376,7 @@ class WiktionaryParser(Parser):
         if resp.status_code == 200:
             results = json.loads(resp.content.decode())
         else:
-            self._logger.info('Error received from server: %u', resp.status_code)
+            _LOG.info('Error received from server: %u', resp.status_code)
         return results
 
     def download_audio(self, link, destination='.'):
@@ -381,7 +387,7 @@ class WiktionaryParser(Parser):
             if full_media is not None:
                 file_name = full_media.p.a['title']
                 file_link = full_media.p.a['href']
-                self._logger.debug('Downloading file %s', file_name)
+                _LOG.debug('Downloading file %s', file_name)
                 audio_file = requests.get(f'https:{file_link}')
                 file_dest = os.path.join(destination, file_name)
                 open(file_dest, 'wb').write(audio_file.content)
@@ -389,10 +395,10 @@ class WiktionaryParser(Parser):
                     file_dest = convert_ogg_to_mp3(file_dest)
                 return file_dest
             else:
-                self._logger.warning('Could not find media file on page')
+                _LOG.warning('Could not find media file on page')
                 return None
         else:
-            self._logger.warning('Error fetching file %s', link)
+            _LOG.warning('Error fetching file %s', link)
             return None
 
 
