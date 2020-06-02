@@ -7,8 +7,8 @@ import logging
 import bs4
 import requests
 from pydub import AudioSegment
-from .entries import WordEntry, WordDefinition, WordExample
-from .parsers import Parser
+from entries import WordEntry, WordDefinition, WordExample
+from parsers import Parser
 
 
 class WiktionaryInflectionTable:
