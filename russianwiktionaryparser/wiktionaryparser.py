@@ -119,7 +119,7 @@ class WiktionaryDefinition(WordDefinition):
 class WiktionaryEntry(WordEntry):
     pos_list = ['Verb', 'Noun', 'Adjective', 'Pronoun', 'Conjunction', 'Proper noun', 'Numeral', 'Preposition',
                 'Adverb', 'Participle', 'Letter', 'Prefix', 'Punctuation mark', 'Interjection', 'Determiner',
-                'Predicative']
+                'Predicative', 'Proverb']
 
     def __init__(self, word, pos_header=None, tracing=None, *args, **kwargs):
         super().__init__(word, *args, **kwargs)
@@ -280,10 +280,10 @@ class WiktionaryPageParser:
     def __init__(self, entered_word, soup: bs4.BeautifulSoup):
         self.entered_word = entered_word
         self.raw_soup = soup
+        self.page_title = ''
         self._get_title()
         self.filtered_soup = self.filter_language()
         self.entries = []
-        self.page_title = ''
 
         if self.filtered_soup is not None:
             etymologies = self.filtered_soup.find_all('span', {'class': 'mw-headline', 'id': re.compile('Etymology')})
@@ -334,7 +334,10 @@ class WiktionaryPageParser:
 
 def convert_ogg_to_mp3(ogg_file):
     mp3_file = ogg_file.replace('.ogg', '.mp3')
-    AudioSegment.from_file(ogg_file).export(mp3_file, format="mp3")
+    try:
+        AudioSegment.from_file(ogg_file).export(mp3_file, format="mp3")
+    except:
+        print("Error occurred converting file")
     return mp3_file
 
 
