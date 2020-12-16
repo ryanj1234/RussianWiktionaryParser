@@ -119,7 +119,7 @@ class WiktionaryDefinition(WordDefinition):
 class WiktionaryEntry(WordEntry):
     pos_list = ['Verb', 'Noun', 'Adjective', 'Pronoun', 'Conjunction', 'Proper noun', 'Numeral', 'Preposition',
                 'Adverb', 'Participle', 'Letter', 'Prefix', 'Punctuation mark', 'Interjection', 'Determiner',
-                'Predicative', 'Proverb']
+                'Predicative', 'Proverb', 'Particle']
 
     def __init__(self, word, pos_header=None, tracing=None, *args, **kwargs):
         super().__init__(word, *args, **kwargs)
