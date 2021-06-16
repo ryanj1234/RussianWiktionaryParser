@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from entries import WordEntry
+from .entries import WordEntry
 
 
 class Parser(ABC):
